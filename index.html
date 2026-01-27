@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración de Fichajes</title>
+    <!-- Librerías para PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Aplicamos box-sizing para cálculos de ancho más predecibles */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); 
+            padding: 2rem;
+        }
+        .filter-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        @media (min-width: 768px) {
+            .filter-container {
+                grid-template-columns: repeat(3, 1fr); 
+            }
+        }
+
+        /* ---------------------------------------------------- */
+        /* ESTILOS CLAVE PARA EL ENCABEZADO FIJO */
+        /* ---------------------------------------------------- */
+        .table-card {
+            /* Nuevo contenedor de la tarjeta, sin padding interno para que las tablas lo ocupen */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-radius: 1rem;
+            overflow: hidden; /* Oculta cualquier desbordamiento interno del card */
+            background-color: white;
+        }
+        
+        /* Definición de ancho explícito para cada columna para sincronizar tablas */
+        .col-date { width: 140px; } 
+        .col-id { width: 120px; }
+        /* *** AJUSTE DE ANCHO PARA EMAIL *** */
+        .col-email { width: 225px; } /* ANCHO AMPLIADO: de 150px a 220px */
+        /* ********************************* */
+        .col-morning { width: 160px; } 
+        .col-afternoon { width: 150px; }
+        .col-total { width: 120px; } 
+        
+        /* CÁLCULO DEL ANCHO TOTAL DE LA TABLA: 
+           140+120+220+160+150+120 = 910px. 
+           Esto asegura que la tabla encaje en el layout y el scroll horizontal funcione si es necesario.
+        */
+        .fichajes-table {
+            table-layout: fixed;
+            min-width: 910px; 
+            width: 910px; 
+        }
+
+        .header-wrapper {
+            background-color: #e5e7eb; /* Fondo del encabezado (Gray-200) */
+            overflow-x: hidden; 
+        }
+
+        .body-scroll-container {
+            max-height: 70vh; /* Limitar la altura para scroll vertical */
+            overflow-y: scroll; /* Scroll vertical */
+            overflow-x: auto; /* Scroll horizontal si la tabla es más ancha que el contenedor */
+        }
+        
+        .fichajes-table th, .fichajes-table td {
+            padding: 0.75rem 1.5rem; 
+            text-align: center;
+            word-break: break-word; /* Permite saltos de línea dentro de la celda si el contenido es demasiado largo */
+        }
+
+        .fichajes-table th {
+            text-align: left; /* Restablecer para los textos */
+        }
+        
+        .fichajes-table th.text-center {
+            text-align: center;
+        }
+
+        /* Ocultar elementos para la captura del PDF (lo usamos para el header-wrapper visible) */
+        .pdf-hidden {
+            display: none !important;
+        }
+        
+    </style>
+</head>
+<body class="bg-gray-100 p-4 md:p-8 flex justify-center items-center min-h-screen">
+    <div class="container mx-auto max-w-6xl">
+        <h1 id="main-title" class="text-3xl font-bold text-center text-gray-800 mb-8">Panel de Fichajes</h1>
+
+        <div id="message-container" class="mb-4 hidden">
+            <div id="message-box" class="rounded-lg p-4 text-center font-medium transition duration-300"></div>
+        </div>
+        
+        <!-- Tarjeta de Filtros -->
+        <div class="card mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Filtros de Búsqueda</h2>
+            <div class="filter-container">
+                <div>
+                    <label for="user-select" class="block text-sm font-medium text-gray-700 mb-1">Seleccionar Usuario</label>
+                    <select id="user-select" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
+                        <option value="">Cargando usuarios...</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="start-date" class="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label>
+                    <input type="date" id="start-date" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
+                </div>
+                <div>
+                    <label for="end-date" class="block text-sm font-medium text-gray-700 mb-1">Fecha de Fin</label>
+                    <input type="date" id="end-date" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
+                </div>
+            </div>
+            <div class="flex justify-end mt-4 space-x-4">
+                <button id="export-pdf-btn" class="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition duration-150 flex items-center disabled:opacity-50" disabled>
+                     <!-- Icono de PDF de Lucide-React - Usamos SVG inlined -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="10" x2="14" y1="15" y2="15"></line><line x1="12" x2="12" y1="12" y2="18"></line></svg>
+                    Exportar a PDF
+                </button>
+                <button id="filter-btn" class="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150">
+                    Filtrar Fichajes
+                </button>
+            </div>
+        </div>
+
+        <!-- Contenedor principal de contenido para el PDF -->
+        <div id="pdf-content">
+            <!-- Tarjeta de Resumen (Destacada) -->
+            <div class="card mb-8 bg-indigo-50 border border-indigo-200">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Resumen del Período</h2>
+                <div id="summary-content">
+                    <p id="summary-user" class="text-sm font-medium text-gray-600 mb-1">Usuario: <span id="summary-user-name" class="font-semibold text-gray-800">No seleccionado</span></p>
+                    <p id="summary-date-range" class="text-sm font-medium text-gray-600 mb-3">Período: <span id="summary-dates" class="font-semibold text-gray-800">--</span></p>
+                    <p id="total-hours" class="text-gray-800 text-2xl font-bold border-t pt-3 border-indigo-200">Total de horas trabajadas: 0.00</p>
+                </div>
+                <div id="loading" class="hidden text-gray-500 flex items-center mt-2 md:mt-0">
+                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Cargando...
+                </div>
+            </div>
+
+            <!-- Tarjeta de Tabla de Fichajes -->
+            <div id="table-card-container" class="table-card p-0">
+                <h2 class="text-xl font-semibold text-gray-700 p-6 pb-2">Detalle de Fichajes</h2>
+
+                <!-- 1. TABLA DE ENCABEZADO (FIJA Y VISIBLE) -->
+                <div id="header-wrapper" class="header-wrapper">
+                    <table class="divide-y divide-gray-300 fichajes-table">
+                        <thead id="fichajes-table-head" class="bg-gray-200">
+                            <tr>
+                                <th scope="col" class="text-left text-xs font-medium text-gray-700 uppercase tracking-wider col-date">Fecha</th>
+                                <th scope="col" class="text-left text-xs font-medium text-gray-700 uppercase tracking-wider col-id">ID Fichaje</th>
+                                <th scope="col" class="text-left text-xs font-medium text-gray-700 uppercase tracking-wider col-email">Email Usuario</th>
+                                <th scope="col" class="text-xs font-medium text-gray-700 uppercase tracking-wider text-center col-morning">Mañana (E - S)</th>
+                                <th scope="col" class="text-xs font-medium text-gray-700 uppercase tracking-wider text-center col-afternoon">Tarde (E - S)</th>
+                                <th scope="col" class="text-xs font-medium text-gray-700 uppercase tracking-wider text-center col-total">Total (h)</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+
+                <!-- 2. CONTENEDOR DE CUERPO (SCROLLABLE) -->
+                <div id="table-body-scroll-container" class="body-scroll-container">
+                    <table class="divide-y divide-gray-200 fichajes-table">
+                        <tbody id="fichajes-table-body" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="6" class="text-center text-sm text-gray-500">Selecciona un usuario y un rango de fechas para ver los fichajes.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 3. Contenedor Temporal para la Captura del PDF (Inicialmente oculto) -->
+                <!-- Este elemento recibirá la tabla unificada para la captura de html2canvas -->
+                <div id="pdf-table-capture-temp" class="pdf-hidden">
+                    <!-- La tabla unificada se insertará aquí -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Se carga la clase jsPDF desde el objeto global window
+        const { jsPDF } = window.jspdf;
+
+        // =================================================================
+        // ** CONFIGURACIÓN DE LA EMPRESA PARA EL PDF **
+        const EMPRESA_INFO = {
+            nombre: "Osi Servilang, SLL",
+            direccion: "Calle Osio, 33, 08034 Barcelona",
+            nif: "B63722664",
+            telefono: "+34 93 252 1109",
+            email: "contacto@osiservilang.es", 
+        };
+        // =================================================================
+
+
+        // URL de tu API de Google Scripts.
+        const googleSheetApiUrl = 'https://script.google.com/macros/s/AKfycbxYGU78jptiNS8nk09AItfJd_0gau2yoRMDQuWcYai8aQHktUHysXBJ8DMaP54xGuwprg/exec';
+
+        // Elementos del DOM
+        const mainTitle = document.getElementById('main-title');
+        const userSelect = document.getElementById('user-select');
+        const startDateInput = document.getElementById('start-date');
+        const endDateInput = document.getElementById('end-date');
+        const filterBtn = document.getElementById('filter-btn');
+        const exportPdfBtn = document.getElementById('export-pdf-btn');
+        const totalHours = document.getElementById('total-hours');
+        const loadingSpinner = document.getElementById('loading');
+        const messageContainer = document.getElementById('message-container');
+        const messageBox = document.getElementById('message-box');
+        
+        // Elementos del nuevo resumen
+        const summaryUserName = document.getElementById('summary-user-name');
+        const summaryDates = document.getElementById('summary-dates');
+
+        // Elementos de la tabla
+        const tableBody = document.getElementById('fichajes-table-body');
+        const tableHead = document.getElementById('fichajes-table-head');
+        const scrollContainer = document.getElementById('table-body-scroll-container');
+        const pdfTableTempContainer = document.getElementById('pdf-table-capture-temp');
+        
+        let allFichajesData = [];
+        let allUsers = []; // Esta lista ahora contendrá el campo DNI
+        let currentUserName = "No seleccionado";
+        let currentUserDNI = "--------"; // Nueva variable para almacenar el DNI
+        let currentSummaryDates = "--";
+        
+        // ** CONSTANTE DE COMPENSACIÓN HORARIA **
+        // Compensación de +16 horas (57,600,000 milisegundos) para corregir el desfase de la API.
+        const TIME_OFFSET_MS = 16 * 60 * 60 * 1000;
+
+        // Función para mostrar mensajes de validación
+        function showMessage(msg, type = 'error') {
+            messageBox.textContent = msg;
+            messageContainer.classList.remove('hidden');
+            if (type === 'error') {
+                messageBox.classList.remove('bg-green-100', 'text-green-800');
+                messageBox.classList.add('bg-red-100', 'text-red-800');
+            } else {
+                messageBox.classList.remove('bg-red-100', 'text-green-800');
+                messageBox.classList.add('bg-green-100', 'text-green-800');
+            }
+            setTimeout(() => {
+                messageContainer.classList.add('hidden');
+            }, 5000);
+        }
+
+        /**
+         * Convierte una fecha en formato ISO (YYYY-MM-DD) a DD-MM-YYYY.
+         */
+        function formatDateDDMMYYYY(dateString) {
+            if (!dateString) return '';
+            const parts = dateString.split('-');
+            if (parts.length === 3) {
+                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            return dateString; 
+        }
+
+        async function loadDataFromSheets() {
+            loadingSpinner.classList.remove('hidden');
+            userSelect.innerHTML = '<option value="">Cargando...</option>';
+            tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-sm text-gray-500">Cargando datos...</td></tr>';
+            mainTitle.textContent = 'Panel de Fichajes';
+            summaryUserName.textContent = 'No seleccionado';
+            summaryDates.textContent = '--';
+            exportPdfBtn.disabled = true; // Desactivar al inicio
+
+            try {
+                const response = await fetch(googleSheetApiUrl);
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                allUsers = data.usuarios; // Asumimos que la lista de usuarios incluye el DNI
+                allFichajesData = data.fichajes;
+                
+                userSelect.innerHTML = '<option value="">-- Seleccionar Usuario --</option>';
+                // Usamos el Nombre_Completo para la visualización, pero el Email_Usuario para filtrar
+                allUsers.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.Email_Usuario; // Usar el email como valor para el filtro
+                    option.textContent = user.Nombre_Completo; 
+                    option.setAttribute('data-user-name', user.Nombre_Completo);
+                    // Añadimos el DNI como atributo de datos para recuperarlo fácilmente
+                    option.setAttribute('data-user-dni', user.DNI || '--------'); 
+                    userSelect.appendChild(option);
+                });
+
+                // Establecer la fecha de hoy como fecha de fin por defecto
+                const today = new Date().toISOString().split('T')[0];
+                endDateInput.value = today;
+                
+            } catch (e) {
+                console.error("Error al cargar datos desde Google Sheets: ", e);
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-sm text-red-500">Error al cargar datos. Revisa la consola para más detalles.</td></tr>';
+                userSelect.innerHTML = '<option value="">Error al cargar...</option>';
+            } finally {
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        userSelect.addEventListener('change', () => {
+            const selectedOption = userSelect.options[userSelect.selectedIndex];
+            // Aquí obtenemos el nombre completo del atributo data-user-name
+            const userName = selectedOption ? selectedOption.getAttribute('data-user-name') : 'No seleccionado';
+            // Aquí obtenemos el DNI del atributo data-user-dni
+            const userDNI = selectedOption ? selectedOption.getAttribute('data-user-dni') : '--------';
+
+            currentUserName = userName; // Actualizar variable global
+            currentUserDNI = userDNI; // Actualizar variable global DNI
+
+            if (userName !== 'No seleccionado') {
+                mainTitle.textContent = `Fichajes de ${userName}`;
+                summaryUserName.textContent = userName;
+            } else {
+                 mainTitle.textContent = 'Panel de Fichajes';
+                 summaryUserName.textContent = 'No seleccionado';
+            }
+        });
+
+
+        filterBtn.addEventListener('click', () => {
+            const selectedEmail = userSelect.value;
+            const startDateStr = startDateInput.value;
+            const endDateStr = endDateInput.value;
+            
+            const selectedOption = userSelect.options[userSelect.selectedIndex];
+            const userName = selectedOption ? selectedOption.getAttribute('data-user-name') : 'No seleccionado';
+            const userDNI = selectedOption ? selectedOption.getAttribute('data-user-dni') : '--------';
+            
+            const formattedStartDate = formatDateDDMMYYYY(startDateStr);
+            const formattedEndDate = formatDateDDMMYYYY(endDateStr);
+
+            if (!selectedEmail || !startDateStr || !endDateStr) {
+                showMessage("Por favor, selecciona un usuario y un rango de fechas.");
+                summaryDates.textContent = '--';
+                totalHours.textContent = 'Total de horas trabajadas: 0.00';
+                exportPdfBtn.disabled = true;
+                return;
+            }
+
+            loadingSpinner.classList.remove('hidden');
+            
+            // Actualizar variables y el resumen antes de empezar el cálculo
+            currentUserName = userName;
+            currentUserDNI = userDNI;
+            currentSummaryDates = `${formattedStartDate} al ${formattedEndDate}`;
+
+            summaryUserName.textContent = currentUserName;
+            summaryDates.textContent = currentSummaryDates;
+            
+            setTimeout(() => {
+                const filteredFichajes = allFichajesData.filter(fichaje => {
+                    const fichajeDate = new Date(fichaje.Fecha);
+                    const startDate = new Date(startDateStr);
+                    const endDate = new Date(endDateStr);
+
+                    // Normalizar las fechas a solo Año, Mes, Día para comparación
+                    const normalizedFichajeDate = new Date(fichajeDate.getFullYear(), fichajeDate.getMonth(), fichajeDate.getDate());
+                    const normalizedStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                    const normalizedEndDate = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+                    
+                    return fichaje.Email_Usuario === selectedEmail && 
+                           normalizedFichajeDate >= normalizedStartDate && 
+                           normalizedFichajeDate <= normalizedEndDate;
+                });
+                
+                renderTable(filteredFichajes);
+                loadingSpinner.classList.add('hidden');
+            }, 50); // Pequeño retraso para UX
+        });
+        
+        // Función de corrección de tiempo con compensación de 16 horas
+        function getPureTime(isoTimeString) {
+            if (!isoTimeString || typeof isoTimeString !== 'string') return null;
+
+            try {
+                const dateUTC = new Date(isoTimeString);
+                const adjustedTimeMs = dateUTC.getTime() + TIME_OFFSET_MS; 
+                const adjustedDate = new Date(adjustedTimeMs);
+                
+                const hours = adjustedDate.getUTCHours().toString().padStart(2, '0');
+                const minutes = adjustedDate.getUTCMinutes().toString().padStart(2, '0');
+                const seconds = adjustedDate.getUTCSeconds().toString().padStart(2, '0');
+                
+                return `${hours}:${minutes}:${seconds}`;
+
+            } catch (e) {
+                console.error("Error al analizar la cadena de tiempo ISO (fichaje.Hora):", isoTimeString, e);
+                if (isoTimeString.includes('T')) {
+                    const timePart = isoTimeString.split('T')[1].substring(0, 8);
+                    return timePart.length >= 5 ? timePart : null;
+                }
+                return null;
+            }
+        }
+
+        // Función para analizar y calcular la duración en horas
+        function calculateDurationInHours(startTime, endTime) {
+            if (!startTime || !endTime) {
+                return 0;
+            }
+            
+            const [startHours, startMinutes, startSeconds] = startTime.split(':').map(Number);
+            const [endHours, endMinutes, endSeconds] = endTime.split(':').map(Number);
+            
+            const startTotalSeconds = (startHours * 3600) + (startMinutes * 60) + startSeconds;
+            const endTotalSeconds = (endHours * 3600) + (endMinutes * 60) + endSeconds;
+            
+            let durationSeconds = endTotalSeconds - startTotalSeconds;
+            
+            if (durationSeconds < 0) {
+                durationSeconds += 24 * 3600;
+            }
+            
+            return durationSeconds / 3600;
+        }
+        
+        // Función para formatear la hora (ej. '09:05')
+        function formatTime(timeStr) {
+            if (!timeStr) return '--:--';
+            const parts = timeStr.split(':');
+            return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+        }
+        
+        // Combina Entrada y Salida para mostrar en una sola celda
+        function formatInOut(entrada, salida) {
+            const fEntrada = formatTime(entrada);
+            const fSalida = formatTime(salida);
+            
+            if (fEntrada === '--:--' && fSalida === '--:--') {
+                return '<span class="text-gray-400">Sin fichajes</span>';
+            }
+            
+            const entradaHtml = fEntrada !== '--:--' 
+                ? `<span class="text-indigo-600 font-semibold">${fEntrada}</span>` 
+                : `<span class="text-gray-400">--:--</span>`;
+                
+            const salidaHtml = fSalida !== '--:--' 
+                ? `<span class="text-emerald-700 font-semibold">${fSalida}</span>` 
+                : `<span class="text-gray-400">--:--</span>`;
+
+            const separatorHtml = `<span class="text-gray-500"> - </span>`;
+
+            return `${entradaHtml}${separatorHtml}${salidaHtml}`;
+        }
+
+
+        function renderTable(fichajes) {
+            tableBody.innerHTML = '';
+            if (fichajes.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-sm text-gray-500">No se encontraron fichajes para el filtro seleccionado.</td></tr>';
+                totalHours.textContent = 'Total de horas trabajadas: 0.00';
+                exportPdfBtn.disabled = true;
+                return;
+            }
+
+            const dailyEntries = {};
+
+            fichajes.forEach(fichaje => {
+                const cleanDate = fichaje.Fecha.split('T')[0]; 
+                
+                if (!dailyEntries[cleanDate]) {
+                    dailyEntries[cleanDate] = {
+                        'Mañana': { 'Entrada': null, 'Salida': null },
+                        'Tarde': { 'Entrada': null, 'Salida': null },
+                        'FichajeID': fichaje.ID_Fichaje,
+                        'EmailUsuario': fichaje.Email_Usuario,
+                    };
+                }
+                
+                const hora = getPureTime(fichaje.Hora);
+
+                if (fichaje.Turno === 'Mañana') {
+                    if (fichaje.Tipo_Fichaje === 'Entrada' && (!dailyEntries[cleanDate]['Mañana']['Entrada'] || hora < dailyEntries[cleanDate]['Mañana']['Entrada'])) {
+                        dailyEntries[cleanDate]['Mañana']['Entrada'] = hora;
+                    } else if (fichaje.Tipo_Fichaje === 'Salida' && (!dailyEntries[cleanDate]['Mañana']['Salida'] || hora > dailyEntries[cleanDate]['Mañana']['Salida'])) {
+                        dailyEntries[cleanDate]['Mañana']['Salida'] = hora;
+                    }
+                } else if (fichaje.Turno === 'Tarde') {
+                    if (fichaje.Tipo_Fichaje === 'Entrada' && (!dailyEntries[cleanDate]['Tarde']['Entrada'] || hora < dailyEntries[cleanDate]['Tarde']['Entrada'])) {
+                        dailyEntries[cleanDate]['Tarde']['Entrada'] = hora;
+                    } else if (fichaje.Tipo_Fichaje === 'Salida' && (!dailyEntries[cleanDate]['Tarde']['Salida'] || hora > dailyEntries[cleanDate]['Tarde']['Salida'])) {
+                        dailyEntries[cleanDate]['Tarde']['Salida'] = hora;
+                    }
+                }
+            });
+
+            let totalWorkedHours = 0;
+            const sortedDates = Object.keys(dailyEntries).sort();
+            
+            sortedDates.forEach(date => {
+                const dayData = dailyEntries[date];
+                let dailyTotalHours = 0;
+
+                const entradaManana = dayData.Mañana.Entrada;
+                const salidaManana = dayData.Mañana.Salida;
+                const entradaTarde = dayData.Tarde.Entrada;
+                const salidaTarde = dayData.Tarde.Salida;
+
+                dailyTotalHours += calculateDurationInHours(entradaManana, salidaManana);
+                dailyTotalHours += calculateDurationInHours(entradaTarde, salidaTarde);
+                
+                totalWorkedHours += dailyTotalHours;
+                
+                const formattedDate = formatDateDDMMYYYY(date);
+
+                const rowContent = `
+                    <tr class="hover:bg-gray-50 transition duration-100">
+                        <td class="text-sm font-medium text-gray-900 col-date">${formattedDate}</td>
+                        <td class="text-xs text-gray-500 col-id">${dayData.FichajeID}</td>
+                        <td class="text-xs text-gray-500 col-email">${dayData.EmailUsuario}</td>
+                        <td class="text-sm text-center col-morning">${formatInOut(entradaManana, salidaManana)}</td>
+                        <td class="text-sm text-center col-afternoon">${formatInOut(entradaTarde, salidaTarde)}</td>
+                        <td class="text-sm font-bold text-center text-green-700 col-total">${dailyTotalHours.toFixed(2)}</td>
+                    </tr>
+                `;
+                tableBody.innerHTML += rowContent;
+            });
+
+            totalHours.textContent = `Total de horas trabajadas: ${totalWorkedHours.toFixed(2)} horas`;
+            exportPdfBtn.disabled = false; // Activar el botón de exportación si hay datos
+        }
+
+        // ------------------------------------------------------------------
+        // Lógica de Exportación a PDF (Versión con DNI)
+        // ------------------------------------------------------------------
+        
+        /**
+         * Genera un informe PDF atractivo a partir del contenido visible (Resumen y Tabla).
+         */
+        async function generatePdfReport() {
+            if (exportPdfBtn.disabled) {
+                showMessage("Por favor, selecciona un usuario y filtra los datos antes de exportar.", 'error');
+                return;
+            }
+
+            // Nombre y DNI del trabajador (obtenidos de la selección)
+            const workerName = currentUserName; 
+            const workerDNI = currentUserDNI;
+            
+            // 1. Mostrar estado de carga
+            exportPdfBtn.disabled = true;
+            exportPdfBtn.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Generando PDF...
+            `;
+            
+            // Elemento principal a capturar
+            const pdfContent = document.getElementById('pdf-content');
+            
+            // Elementos de la tabla
+            const headerWrapper = document.getElementById('header-wrapper');
+            
+            let restoreElements = false;
+
+            try {
+                // 2. Preparación para la Captura de Canvas
+                const theadClone = tableHead.cloneNode(true);
+                const tbodyClone = tableBody.cloneNode(true);
+
+                const fullTable = document.createElement('table');
+                fullTable.className = 'divide-y divide-gray-200 fichajes-table w-full';
+                fullTable.appendChild(theadClone);
+                fullTable.appendChild(tbodyClone);
+
+                // Manipular el DOM: Ocultar los contenedores originales y mostrar la tabla unificada
+                headerWrapper.classList.add('pdf-hidden');
+                scrollContainer.classList.add('pdf-hidden');
+                
+                pdfTableTempContainer.classList.remove('pdf-hidden');
+                pdfTableTempContainer.appendChild(fullTable);
+                
+                restoreElements = true;
+
+                // 3. Renderizar el contenido (Resumen y Tabla completa unificada) a canvas
+                const canvas = await html2canvas(pdfContent, {
+                    scale: 2, 
+                    allowTaint: true,
+                    useCORS: true,
+                    ignoreElements: (element) => element.id === 'loading' 
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                
+                // 4. Crear el PDF
+                const pdf = new jsPDF('p', 'mm', 'a4'); 
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                
+                // Definir los márgenes y posición inicial
+                const margin = 15;
+                let yPosition = margin; 
+                const contentWidth = pdfWidth - 2 * margin;
+
+                // 5. Dibujar la Cabecera de la Empresa
+                
+                // Título principal (Nombre de la empresa)
+                pdf.setFontSize(14);
+                pdf.setFont(pdf.getFont().fontName, 'bold'); // Usar negrita para el nombre
+                pdf.setTextColor(49, 46, 129); // Indigo 700
+                pdf.text(EMPRESA_INFO.nombre, margin, yPosition);
+                yPosition += 6;
+
+                // Detalles de la empresa
+                pdf.setFontSize(9);
+                pdf.setFont(pdf.getFont().fontName, 'normal'); // Restablecer a normal
+                pdf.setTextColor(107, 114, 128); // Gray 500
+                pdf.text(EMPRESA_INFO.direccion, margin, yPosition);
+                yPosition += 4;
+                
+                // NIF y Teléfono
+                pdf.text(`NIF Empresa: ${EMPRESA_INFO.nif} | Tel: ${EMPRESA_INFO.telefono}`, margin, yPosition);
+                yPosition += 8; 
+                
+                // --- Información del Trabajador (Ahora con DNI) ---
+                pdf.setFontSize(10);
+                pdf.setFont(pdf.getFont().fontName, 'bold');
+                pdf.setTextColor(31, 41, 55); // Gray 800
+                pdf.text(`Trabajador: ${workerName}`, margin, yPosition);
+                yPosition += 4; // Menos espacio para el DNI debajo
+
+                // DNI del trabajador
+                pdf.setFontSize(10);
+                pdf.setFont(pdf.getFont().fontName, 'normal');
+                pdf.setTextColor(55, 65, 81); // Gray 700
+                pdf.text(`DNI/NIF: ${workerDNI}`, margin, yPosition);
+                yPosition += 6;
+
+
+                // Línea de separación
+                pdf.setDrawColor(209, 213, 219); // Gray 300
+                pdf.line(margin, yPosition, pdfWidth - margin, yPosition);
+                yPosition += 5; 
+
+                // Título del Informe
+                pdf.setFontSize(14);
+                pdf.setFont(pdf.getFont().fontName, 'bold'); 
+                pdf.setTextColor(17, 24, 39); // Gray 900
+                pdf.text("INFORME DE CONTROL DE HORAS", pdfWidth / 2, yPosition, { align: "center" });
+                yPosition += 5;
+
+                // Fecha de generación
+                pdf.setFontSize(9);
+                pdf.setFont(pdf.getFont().fontName, 'normal'); 
+                pdf.setTextColor(107, 114, 128); // Gray 500
+                const todayDate = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                pdf.text(`Generado el: ${todayDate}`, pdfWidth / 2, yPosition, { align: "center" });
+                yPosition += 5;
+
+                // Línea de separación (otra)
+                pdf.line(margin, yPosition, pdfWidth - margin, yPosition);
+                yPosition += 5;
+                
+                // Iniciar el dibujo del contenido del Canvas (tabla y resumen)
+                const imgWidth = contentWidth; 
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                let heightLeft = imgHeight;
+                let positionInCanvas = 0;
+
+                while (heightLeft > 0) {
+                    const availablePageHeight = pdfHeight - yPosition - margin;
+                    
+                    if (positionInCanvas > 0) {
+                        pdf.addPage();
+                        // Redibujar una línea simple de encabezado en páginas siguientes para mejor contexto
+                        pdf.setFontSize(10);
+                        pdf.setTextColor(107, 114, 128);
+                        pdf.text(`Informe de Fichajes - Pág. ${pdf.internal.pages.length - 1}`, margin, margin + 5);
+                        pdf.setDrawColor(209, 213, 219);
+                        pdf.line(margin, margin + 8, pdfWidth - margin, margin + 8);
+                        
+                        yPosition = margin + 10; // Posición inicial debajo de la línea
+                    }
+                    
+                    const sliceHeight = Math.min(heightLeft, availablePageHeight);
+
+                    pdf.addImage(
+                        imgData, 
+                        'PNG', 
+                        margin, 
+                        yPosition, 
+                        imgWidth, 
+                        imgHeight, 
+                        null, 
+                        'NONE', 
+                        0, 
+                        positionInCanvas
+                    );
+                    
+                    positionInCanvas -= sliceHeight;
+                    heightLeft -= sliceHeight;
+                    yPosition += sliceHeight;
+                }
+                
+                // 6. Guardar el archivo
+                const fileName = `Informe_Fichajes_${currentUserName.replace(/\s/g, '_')}_${startDateInput.value}_a_${endDateInput.value}.pdf`;
+                pdf.save(fileName);
+                
+                showMessage("Informe PDF generado con éxito.", 'success');
+
+            } catch (error) {
+                console.error("Error al generar el PDF:", error);
+                showMessage("Error al generar el PDF. Asegúrate de que los datos de la tabla estén cargados.", 'error');
+            } finally {
+                // 7. Restablecer el DOM original si fue manipulado
+                if (restoreElements) {
+                    headerWrapper.classList.remove('pdf-hidden');
+                    scrollContainer.classList.remove('pdf-hidden');
+                    
+                    pdfTableTempContainer.innerHTML = '';
+                    pdfTableTempContainer.classList.add('pdf-hidden');
+                }
+
+                // 8. Restablecer el botón
+                exportPdfBtn.disabled = false;
+                exportPdfBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="10" x2="14" y1="15" y2="15"></line><line x1="12" x2="12" y1="12" y2="18"></line></svg>
+                    Exportar a PDF
+                `;
+            }
+        }
+
+        // Asignar el evento al nuevo botón
+        exportPdfBtn.addEventListener('click', generatePdfReport);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDataFromSheets();
+        });
+    </script>
+</body>
+</html>

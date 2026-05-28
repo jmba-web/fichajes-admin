@@ -223,30 +223,26 @@
             }
         }
 
-        // ADAPTACIÓN COMPLETA AL DATO REAL:
-        // Como ahora pasamos textos literales desde Apps Script, limpiamos el formato si viene como fecha completa 
-        // o lo dejamos intacto si ya viene limpio ("HH:MM:SS")
+        // Limpia las horas enviadas en texto plano (ej: "13:04:22")
         function getCleanTime(timeString) {
             if (!timeString) return null;
             let str = String(timeString).trim();
-            
-            // Si por algún motivo Google Sheets envía una fecha ISO ("1970-01-01T13:04:22.000Z")
             if (str.includes('T')) {
                 str = str.split('T')[1];
             }
-            
-            // Retornamos únicamente los primeros 8 caracteres (HH:MM:SS)
             return str.substring(0, 8);
         }
 
-        // Si la fecha que viene del Excel trae horas ("2026-05-28" o similar), la limpiamos para filtrar correctamente
+        // CORRECCIÓN CLAVE: Pasa cualquier fecha literal de tipo "26/05/2026" a "2026-05-26" para poder compararla matemáticamente
         function getCleanDate(dateString) {
             if (!dateString) return '';
             let str = String(dateString).trim();
+            
             if (str.includes('T')) {
-                return str.split('T')[0];
+                str = str.split('T')[0];
             }
-            // Si el formato en Excel viene como "DD/MM/YYYY", lo transformamos a "YYYY-MM-DD" para que el filtro funcione
+            
+            // Si viene con formato europeo con barras (ej: "26/05/2026")
             if (str.includes('/')) {
                 const parts = str.split('/');
                 if(parts[2] && parts[2].length === 4) {
@@ -303,6 +299,8 @@
             const daily = {};
             data.forEach(f => {
                 const date = getCleanDate(f.Fecha);
+                if (!date) return;
+                
                 if (!daily[date]) daily[date] = { morning: {Entrada: null, Salida: null}, afternoon: {Entrada: null, Salida: null}, id: f.ID_Fichaje };
                 const time = getCleanTime(f.Hora);
                 
@@ -333,7 +331,6 @@
                 const dayTotalSeconds = secsMorning + secsAfternoon;
                 globalTotalSeconds += dayTotalSeconds;
 
-                // Formateamos la fecha visual como DD/MM/YYYY
                 const visualDate = date.includes('-') ? date.split('-').reverse().join('/') : date;
 
                 tableBody.innerHTML += `

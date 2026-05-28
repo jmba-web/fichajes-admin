@@ -8,156 +8,61 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        servilang: {
-                            dark: '#002855',
-                            primary: '#004b93',
-                            accent: '#00a8e8',
-                            slate: '#f4f7f9'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
     <style>
-        body { 
-            font-family: 'Open Sans', sans-serif; 
-            background-color: #f8fafc; 
-            color: #1e293b;
-        }
+        body { font-family: 'Open Sans', sans-serif; background-color: #f8fafc; color: #1e293b; }
         h1, h2, h3, .font-brand { font-family: 'Montserrat', sans-serif; }
-        
-        .card-corporate {
-            background: white;
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border-top: 4px solid #004b93;
-        }
-
-        .fichajes-table th {
-            background-color: #f1f5f9;
-            padding: 1rem;
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: #475569;
-            text-transform: uppercase;
-            text-align: center;
-            border-bottom: 2px solid #e2e8f0;
-        }
-
-        .fichajes-table td {
-            padding: 0.85rem 1rem;
-            border-bottom: 1px solid #f1f5f9;
-            font-size: 0.875rem;
-            text-align: center;
-        }
-
-        .btn-servilang {
-            background-color: #004b93;
-            transition: all 0.2s;
-        }
-        .btn-servilang:hover:not(:disabled) {
-            background-color: #002855;
-            box-shadow: 0 4px 12px rgba(0, 75, 147, 0.2);
-        }
-
-        #pdf-render-zone {
-            width: 800px;
-            position: absolute;
-            left: -9999px;
-            background: white;
-            top: 0;
-        }
-        
-        .logo-img {
-            height: 48px;
-            width: auto;
-            object-fit: contain;
-        }
-
-        .logo-placeholder {
-            background: #002855;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-weight: 800;
-            font-family: 'Montserrat';
-        }
+        .card-corporate { background: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-top: 4px solid #004b93; }
+        .fichajes-table th { background-color: #f1f5f9; padding: 1rem; font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; text-align: center; }
+        .fichajes-table td { padding: 0.85rem 1rem; border-bottom: 1px solid #f1f5f9; font-size: 0.875rem; text-align: center; }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8">
     <div class="max-w-7xl mx-auto">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 border-b border-slate-200 pb-6">
             <div class="flex items-center gap-6">
-                <div id="logo-container">
-                    <img src="https://www.servilang.es/wp-content/uploads/2021/01/logo-servilang.png" 
-                         alt="Servilang Logo" 
-                         class="logo-img" 
-                         onerror="this.parentElement.innerHTML='<div class=\'logo-placeholder\'>SERVILANG</div>'">
-                </div>
-                <div class="border-l border-slate-200 pl-6 hidden md:block">
-                    <h1 class="text-xl font-extrabold text-servilang-dark uppercase tracking-tight">Control <span class="text-servilang-primary font-light">Horario</span></h1>
-                    <p class="text-slate-500 text-[10px] font-semibold uppercase tracking-widest">Panel de Administración</p>
-                </div>
+                <h1 class="text-xl font-extrabold text-slate-800 uppercase">Control <span class="text-blue-700 font-light">Horario</span></h1>
             </div>
-            <div class="flex gap-2">
-                <button id="export-pdf-btn" disabled class="btn-servilang text-white px-8 py-3 rounded font-bold text-sm uppercase tracking-wider disabled:opacity-50">
-                    Generar Informe PDF
-                </button>
-            </div>
+            <button id="export-pdf-btn" disabled class="bg-blue-700 text-white px-8 py-3 rounded font-bold text-sm disabled:opacity-50">
+                Generar Informe PDF
+            </button>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div class="lg:col-span-1 space-y-6">
                 <div class="card-corporate p-6">
-                    <h3 class="text-sm font-bold text-servilang-dark mb-6 border-b pb-2 uppercase text-center">Configuración</h3>
+                    <h3 class="text-sm font-bold mb-6 border-b pb-2 uppercase text-center">Filtros</h3>
                     <div class="space-y-4">
                         <div>
                             <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Trabajador</label>
-                            <select id="user-select" class="w-full border border-slate-200 p-2.5 rounded text-sm focus:border-servilang-primary outline-none">
+                            <select id="user-select" class="w-full border p-2.5 rounded text-sm outline-none">
                                 <option value="">Cargando empleados...</option>
                             </select>
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Desde</label>
-                            <input type="date" id="start-date" class="w-full border border-slate-200 p-2.5 rounded text-sm outline-none">
+                            <input type="date" id="start-date" class="w-full border p-2.5 rounded text-sm">
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Hasta</label>
-                            <input type="date" id="end-date" class="w-full border border-slate-200 p-2.5 rounded text-sm outline-none">
+                            <input type="date" id="end-date" class="w-full border p-2.5 rounded text-sm">
                         </div>
-                        <button id="filter-btn" class="w-full bg-servilang-dark text-white py-3 rounded font-bold text-xs uppercase hover:bg-black transition-colors">
+                        <button id="filter-btn" class="w-full bg-slate-900 text-white py-3 rounded font-bold text-xs uppercase">
                             Cargar Datos
                         </button>
                     </div>
                 </div>
 
-                <div id="summary-panel" class="bg-servilang-dark p-4 rounded-lg text-white shadow-lg">
-                    <div class="flex justify-between items-center mb-1">
-                        <p class="text-[9px] font-bold text-servilang-accent uppercase tracking-tighter">Total Horas</p>
-                        <span id="record-count-badge" class="text-[8px] bg-white/10 px-1.5 py-0.5 rounded uppercase">0 días</span>
-                    </div>
-                    <div class="flex items-baseline gap-1.5">
-                        <span id="total-hours" class="text-2xl font-brand font-extrabold tracking-tight">00:00:00</span>
-                    </div>
+                <div class="bg-slate-900 p-4 rounded-lg text-white shadow-lg">
+                    <p class="text-[9px] font-bold text-blue-400 uppercase">Total Horas</p>
+                    <span id="total-hours" class="text-2xl font-extrabold">00:00:00</span>
                     <div class="mt-3 pt-2 border-t border-white/10">
-                        <p id="summary-user-name" class="text-[10px] font-bold truncate uppercase">Sin trabajador</p>
-                        <p id="summary-user-dni" class="text-[8px] text-white/50 font-mono">DNI: --</p>
+                        <p id="summary-user-name" class="text-[10px] font-bold uppercase">Sin trabajador</p>
                     </div>
                 </div>
             </div>
 
             <div class="lg:col-span-3">
                 <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                        <span class="text-xs font-bold text-slate-600 uppercase">Vista previa de jornada</span>
-                        <span id="record-count" class="bg-white border border-slate-200 text-[10px] px-2 py-1 rounded font-bold text-slate-400 uppercase">Esperando filtros...</span>
-                    </div>
                     <div class="overflow-x-auto">
                         <table class="w-full fichajes-table">
                             <thead>
@@ -169,9 +74,9 @@
                                     <th class="bg-slate-100">Horas</th>
                                 </tr>
                             </thead>
-                            <tbody id="fichajes-table-body" class="divide-y divide-slate-100">
+                            <tbody id="fichajes-table-body">
                                 <tr>
-                                    <td colspan="5" class="py-20 text-slate-400 text-sm italic">Seleccione los parámetros y pulse "Cargar Datos"</td>
+                                    <td colspan="5" class="py-20 text-slate-400 italic">Seleccione parámetros...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -181,27 +86,18 @@
         </div>
     </div>
 
-    <div id="pdf-render-zone"></div>
+    <div id="pdf-render-zone" style="width: 800px; position: absolute; left: -9999px; background: white;"></div>
 
     <script type="module">
         const { jsPDF } = window.jspdf;
+        // ASEGÚRATE DE QUE ESTA URL ES LA CORRECTA Y ESTÁ ACTUALIZADA EN TU GOOGLE SHEETS
         const API_URL = 'https://script.google.com/macros/s/AKfycbxYGU78jptiNS8nk09AItfJd_0gau2yoRMDQuWcYai8aQHktUHysXBJ8DMaP54xGuwprg/exec';
-        const LOGO_URL = "https://www.servilang.es/wp-content/uploads/2021/01/logo-servilang.png";
-
-        const EMPRESA = {
-            nombre: "OSI SERVILANG, SLL",
-            nif: "B63722664",
-            direccion: "Calle Osio, 33, 08034 Barcelona",
-            web: "www.servilang.es"
-        };
 
         let allFichajes = [];
-        let state = { name: null, dni: null, email: null, start: null, end: null };
+        let state = { name: null, dni: null, start: null, end: null };
 
         async function init() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('end-date').value = today;
-            
+            document.getElementById('end-date').value = new Date().toISOString().split('T')[0];
             try {
                 const res = await fetch(API_URL);
                 const data = await res.json();
@@ -217,41 +113,20 @@
                     opt.dataset.name = u.Nombre_Completo;
                     userSelect.appendChild(opt);
                 });
-            } catch (e) { 
-                console.error("Error cargando usuarios:", e);
-                document.getElementById('user-select').innerHTML = '<option value="">Error al cargar</option>';
+            } catch (e) {
+                document.getElementById('user-select').innerHTML = '<option value="">Error de conexión</option>';
             }
-        }
-
-        function getCleanTime(iso) {
-            if (!iso) return null;
-            let str = String(iso).trim();
-            if (str.includes('T')) str = str.split('T')[1];
-            return str.substring(0, 8);
-        }
-
-        function getCleanDate(dateString) {
-            if (!dateString) return '';
-            let str = String(dateString).trim();
-            if (str.includes('T')) str = str.split('T')[0];
-            if (str.includes('/')) {
-                const parts = str.split('/');
-                if(parts[2] && parts[2].length === 4) {
-                    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                }
-            }
-            return str.substring(0, 10);
         }
 
         function safeTimeToSeconds(timeStr) {
             if (!timeStr || timeStr === '--' || !timeStr.includes(':')) return 0;
             const parts = timeStr.split(':').map(Number);
-            return ((parts[0] || 0) * 3600) + ((parts[1] || 0) * 60) + (parts[2] || 0);
+            return (parts[0] * 3600) + (parts[1] * 60) + (parts[2] || 0);
         }
 
         function formatSecondsToClock(totalSeconds) {
-            if (totalSeconds <= 0) return "0:00:00";
-            const h = Math.floor(totalSeconds / 3600);
+            if (totalSeconds <= 0) return "00:00:00";
+            const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
             const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
             const s = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
             return `${h}:${m}:${s}`;
@@ -263,18 +138,14 @@
             state.start = document.getElementById('start-date').value;
             state.end = document.getElementById('end-date').value;
 
-            if (!email || !state.start || !state.end) {
-                alert("Por favor complete todos los filtros");
-                return;
-            }
+            if (!email) { alert("Selecciona un trabajador"); return; }
 
             const sel = userSelect.options[userSelect.selectedIndex];
             state.name = sel.dataset.name;
             state.dni = sel.dataset.dni;
-            state.email = email;
 
             const filtered = allFichajes.filter(f => {
-                const fDate = getCleanDate(f.Fecha);
+                let fDate = String(f.Fecha).split('T')[0];
                 return f.Email_Usuario === email && fDate >= state.start && fDate <= state.end;
             });
 
@@ -283,201 +154,58 @@
 
         function render(data) {
             const daily = {};
-
             data.forEach(f => {
-                const date = getCleanDate(f.Fecha);
-                if (!date) return;
-
-                if (!daily[date]) {
-                    daily[date] = {
-                        firstId: f.ID_Fichaje || '--',
-                        fichajes: []
-                    };
-                }
-
-                const cleanTime = getCleanTime(f.Hora);
-                if (cleanTime) {
-                    daily[date].fichajes.push({
-                        time: cleanTime,
-                        turno: f.Turno,
-                        seconds: safeTimeToSeconds(cleanTime)
-                    });
-                }
+                let date = String(f.Fecha).split('T')[0];
+                if (!daily[date]) daily[date] = { id: f.ID_Fichaje || '--', ticks: [] };
+                
+                let time = String(f.Hora).includes('T') ? String(f.Hora).split('T')[1].substring(0,8) : String(f.Hora).substring(0,8);
+                daily[date].ticks.push({ time, turno: f.Turno, secs: safeTimeToSeconds(time) });
             });
 
-            let globalTotalSeconds = 0;
-            const tableBody = document.getElementById('fichajes-table-body');
-            tableBody.innerHTML = '';
-            const dates = Object.keys(daily).sort();
+            let globalSeconds = 0;
+            const body = document.getElementById('fichajes-table-body');
+            body.innerHTML = '';
 
-            if(dates.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="5" class="py-20 text-slate-400">No hay registros para este período.</td></tr>';
-                document.getElementById('export-pdf-btn').disabled = true;
-                return;
-            }
+            Object.keys(daily).sort().forEach(date => {
+                const day = daily[date];
+                
+                // AQUÍ ESTÁ EL TRUCO: Forzamos la ordenación de menor a mayor pase lo que pase
+                const manana = day.ticks.filter(t => t.turno === 'Mañana').sort((a,b) => a.secs - b.secs);
+                const tarde = day.ticks.filter(t => t.turno === 'Tarde').sort((a,b) => a.secs - b.secs);
 
-            dates.forEach(date => {
-                const dayData = daily[date];
-                let dayTotalSeconds = 0;
+                let daySecs = 0;
+                let textM = '--';
+                let textT = '--';
 
-                const morningTicks = dayData.fichajes
-                    .filter(f => f.turno === 'Mañana')
-                    .sort((a, b) => a.seconds - b.seconds);
-
-                const afternoonTicks = dayData.fichajes
-                    .filter(f => f.turno === 'Tarde')
-                    .sort((a, b) => a.seconds - b.seconds);
-
-                let morningText = '-';
-                if (morningTicks.length > 0) {
-                    const entradaM = morningTicks[0].time;
-                    const salidaM = morningTicks.length > 1 ? morningTicks[1].time : '--';
-                    morningText = `${entradaM} - ${salidaM}`;
-                    
-                    if (morningTicks.length >= 2) {
-                        dayTotalSeconds += (morningTicks[1].seconds - morningTicks[0].seconds);
-                    }
+                if(manana.length >= 2) {
+                    textM = `${manana[0].time} - ${manana[manana.length-1].time}`;
+                    daySecs += (manana[manana.length-1].secs - manana[0].secs);
+                } else if(manana.length === 1) {
+                    textM = `${manana[0].time} - --`;
                 }
 
-                let afternoonText = '-';
-                if (afternoonTicks.length > 0) {
-                    const entradaT = afternoonTicks[0].time;
-                    const salidaT = afternoonTicks.length > 1 ? afternoonTicks[1].time : '--';
-                    afternoonText = `${entradaT} - ${salidaT}`;
-                    
-                    if (afternoonTicks.length >= 2) {
-                        dayTotalSeconds += (afternoonTicks[1].seconds - afternoonTicks[0].seconds);
-                    }
+                if(tarde.length >= 2) {
+                    textT = `${tarde[0].time} - ${tarde[tarde.length-1].time}`;
+                    daySecs += (tarde[tarde.length-1].secs - tarde[0].secs);
+                } else if(tarde.length === 1) {
+                    textT = `${tarde[0].time} - --`;
                 }
 
-                globalTotalSeconds += dayTotalSeconds;
-                const visualDate = date.includes('-') ? date.split('-').reverse().join('/') : date;
+                globalSeconds += daySecs;
 
-                tableBody.innerHTML += `
-                    <tr>
-                        <td class="font-bold text-servilang-dark">${visualDate}</td>
-                        <td class="text-[10px] text-slate-300 font-mono">${dayData.firstId}</td>
-                        <td class="text-xs font-semibold text-slate-600">${morningText}</td>
-                        <td class="text-xs font-semibold text-slate-600">${afternoonText}</td>
-                        <td class="font-bold text-servilang-primary bg-slate-50/50">${formatSecondsToClock(dayTotalSeconds)}</td>
-                    </tr>`;
+                body.innerHTML += `<tr>
+                    <td class="font-bold">${date.split('-').reverse().join('/')}</td>
+                    <td class="text-xs text-slate-400">${day.id}</td>
+                    <td>${textM}</td>
+                    <td>${textT}</td>
+                    <td class="font-bold text-blue-700 bg-slate-50">${formatSecondsToClock(daySecs)}</td>
+                </tr>`;
             });
 
             document.getElementById('summary-user-name').textContent = state.name;
-            document.getElementById('summary-user-dni').textContent = `DNI: ${state.dni}`;
-            document.getElementById('total-hours').textContent = formatSecondsToClock(globalTotalSeconds);
-            document.getElementById('record-count').textContent = `${dates.length} JORNADAS REGISTRADAS`;
-            document.getElementById('record-count-badge').textContent = `${dates.length} días`;
+            document.getElementById('total-hours').textContent = formatSecondsToClock(globalSeconds);
             document.getElementById('export-pdf-btn').disabled = false;
         }
-
-        document.getElementById('export-pdf-btn').onclick = async () => {
-            const renderZone = document.getElementById('pdf-render-zone');
-            const totalH = document.getElementById('total-hours').textContent;
-            const btn = document.getElementById('export-pdf-btn');
-            
-            btn.textContent = "Generando...";
-            btn.disabled = true;
-
-            renderZone.innerHTML = `
-                <div style="padding: 40px; font-family: 'Montserrat', sans-serif; background: white; color: #1e293b;">
-                    <div style="display: flex; justify-content: space-between; border-bottom: 3px solid #002855; padding-bottom: 20px; margin-bottom: 30px; align-items: center;">
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <img src="${LOGO_URL}" style="height: 40px;" crossorigin="anonymous" onerror="this.style.display='none'">
-                            <div style="border-left: 1px solid #e2e8f0; padding-left: 15px;">
-                                <h1 style="color: #002855; font-size: 14px; font-weight: 800; margin: 0;">${EMPRESA.nombre}</h1>
-                                <p style="font-size: 8px; color: #64748b; margin: 2px 0;">CIF: ${EMPRESA.nif} | ${EMPRESA.web}</p>
-                            </div>
-                        </div>
-                        <div style="text-align: right;">
-                            <h2 style="font-size: 14px; color: #004b93; font-weight: 700; margin: 0;">REGISTRO DE JORNADA</h2>
-                            <p style="font-size: 8px; color: #94a3b8; margin-top: 3px;">Control Horario Oficial</p>
-                        </div>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; margin-bottom: 30px;">
-                        <div style="border: 1px solid #e2e8f0; padding: 15px; border-radius: 4px;">
-                            <p style="font-size: 8px; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Trabajador</p>
-                            <p style="font-size: 14px; font-weight: 700; color: #002855; margin: 0;">${state.name}</p>
-                            <p style="font-size: 11px; color: #475569; margin-top: 4px;">DNI/NIE: <b>${state.dni}</b></p>
-                        </div>
-                        <div style="background: #002855; padding: 15px; border-radius: 4px; color: white; text-align: center;">
-                            <p style="font-size: 8px; color: #00a8e8; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Total Horas Período</p>
-                            <p style="font-size: 24px; font-weight: 800; margin: 0;">${totalH}</p>
-                            <p style="font-size: 8px; color: #cbd5e1; margin-top: 5px;">${state.start} - ${state.end}</p>
-                        </div>
-                    </div>
-
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr style="background: #f8fafc;">
-                                <th style="border: 1px solid #e2e8f0; padding: 10px; font-size: 9px; text-align: left; color: #64748b;">FECHA</th>
-                                <th style="border: 1px solid #e2e8f0; padding: 10px; font-size: 9px; color: #64748b;">TURNO MAÑANA</th>
-                                <th style="border: 1px solid #e2e8f0; padding: 10px; font-size: 9px; color: #64748b;">TURNO TARDE</th>
-                                <th style="border: 1px solid #e2e8f0; padding: 10px; font-size: 9px; color: #64748b; background: #f1f5f9; width: 85px;">SUMA</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${Array.from(document.getElementById('fichajes-table-body').querySelectorAll('tr')).map(tr => {
-                                const cells = tr.querySelectorAll('td');
-                                if(cells.length < 5) return '';
-                                return `
-                                    <tr>
-                                        <td style="border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 10px; font-weight: 700; color: #002855;">${cells[0].innerText}</td>
-                                        <td style="border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 10px; text-align: center; color: #475569;">${cells[2].innerText}</td>
-                                        <td style="border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 10px; text-align: center; color: #475569;">${cells[3].innerText}</td>
-                                        <td style="border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 10px; font-weight: 700; text-align: center; background: #f8fafc;">${cells[4].innerText}</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-
-                    <div style="margin-top: 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 60px;">
-                        <div style="text-align: center;">
-                            <div style="height: 80px; border: 1px dashed #cbd5e1; border-radius: 4px; margin-bottom: 10px;"></div>
-                            <p style="font-size: 9px; font-weight: 700; color: #002855; border-top: 1.5px solid #002855; padding-top: 8px; text-transform: uppercase;">Sello Empresa / Firma Autorizada</p>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="height: 80px; border: 1px dashed #cbd5e1; border-radius: 4px; margin-bottom: 10px;"></div>
-                            <p style="font-size: 9px; font-weight: 700; color: #002855; border-top: 1.5px solid #002855; padding-top: 8px; text-transform: uppercase;">Firma del Trabajador</p>
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 40px; border-top: 1px solid #f1f5f9; padding-top: 15px;">
-                        <p style="font-size: 8px; color: #94a3b8; text-align: justify; line-height: 1.5;">
-                            En cumplimiento del Art. 34.9 del Estatuto de los Trabajadores (Real Decreto-ley 8/2019), este documento certifica las horas efectivamente trabajadas por el empleado arriba mencionado durante el período indicado.
-                        </p>
-                    </div>
-                </div>
-            `;
-
-            try {
-                await new Promise(r => setTimeout(r, 500));
-                const canvas = await html2canvas(renderZone, { 
-                    useCORS: true, 
-                    scale: 2,
-                    logging: false,
-                    allowTaint: true
-                });
-
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                const pageWidth = pdf.internal.pageSize.getWidth();
-                const imgProps = pdf.getImageProperties(imgData);
-                const pdfImgHeight = (imgProps.height * pageWidth) / imgProps.width;
-                
-                pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pdfImgHeight);
-                pdf.save(`INFORME_SERVILANG_${state.name.replace(/\s/g, '_')}.pdf`);
-            } catch (err) {
-                console.error("Error al generar PDF:", err);
-                alert("Hubo un error al generar el PDF. Intente de nuevo.");
-            } finally {
-                renderZone.innerHTML = '';
-                btn.textContent = "Generar Informe PDF";
-                btn.disabled = false;
-            }
-        };
 
         init();
     </script>

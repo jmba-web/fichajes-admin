@@ -8,11 +8,27 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        servilang: {
+                            dark: '#002855',
+                            primary: '#004b93',
+                            accent: '#00a8e8',
+                            slate: '#f4f7f9'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
         body { font-family: 'Open Sans', sans-serif; background-color: #f8fafc; color: #1e293b; }
         h1, h2, h3, .font-brand { font-family: 'Montserrat', sans-serif; }
         .card-corporate { background: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-top: 4px solid #004b93; }
-        .fichajes-table th { background-color: #f1f5f9; padding: 1rem; font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; text-align: center; }
+        .fichajes-table th { background-color: #f1f5f9; padding: 1rem; font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; text-align: center; border-bottom: 2px solid #e2e8f0; }
         .fichajes-table td { padding: 0.85rem 1rem; border-bottom: 1px solid #f1f5f9; font-size: 0.875rem; text-align: center; }
     </style>
 </head>
@@ -20,9 +36,9 @@
     <div class="max-w-7xl mx-auto">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 border-b border-slate-200 pb-6">
             <div class="flex items-center gap-6">
-                <h1 class="text-xl font-extrabold text-slate-800 uppercase">Control <span class="text-blue-700 font-light">Horario</span></h1>
+                <h1 class="text-xl font-extrabold text-servilang-dark uppercase tracking-tight">Control <span class="text-servilang-primary font-light">Horario</span></h1>
             </div>
-            <button id="export-pdf-btn" disabled class="bg-blue-700 text-white px-8 py-3 rounded font-bold text-sm disabled:opacity-50">
+            <button id="export-pdf-btn" disabled class="bg-servilang-primary hover:bg-servilang-dark text-white px-8 py-3 rounded font-bold text-sm uppercase tracking-wider disabled:opacity-50 transition-colors">
                 Generar Informe PDF
             </button>
         </header>
@@ -30,39 +46,47 @@
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div class="lg:col-span-1 space-y-6">
                 <div class="card-corporate p-6">
-                    <h3 class="text-sm font-bold mb-6 border-b pb-2 uppercase text-center">Filtros</h3>
+                    <h3 class="text-sm font-bold text-servilang-dark mb-6 border-b pb-2 uppercase text-center">Configuración</h3>
                     <div class="space-y-4">
                         <div>
                             <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Trabajador</label>
-                            <select id="user-select" class="w-full border p-2.5 rounded text-sm outline-none">
+                            <select id="user-select" class="w-full border border-slate-200 p-2.5 rounded text-sm focus:border-servilang-primary outline-none">
                                 <option value="">Cargando empleados...</option>
                             </select>
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Desde</label>
-                            <input type="date" id="start-date" class="w-full border p-2.5 rounded text-sm">
+                            <input type="date" id="start-date" class="w-full border border-slate-200 p-2.5 rounded text-sm outline-none">
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Hasta</label>
-                            <input type="date" id="end-date" class="w-full border p-2.5 rounded text-sm">
+                            <input type="date" id="end-date" class="w-full border border-slate-200 p-2.5 rounded text-sm outline-none">
                         </div>
-                        <button id="filter-btn" class="w-full bg-slate-900 text-white py-3 rounded font-bold text-xs uppercase">
+                        <button id="filter-btn" class="w-full bg-servilang-dark text-white py-3 rounded font-bold text-xs uppercase hover:bg-black transition-colors">
                             Cargar Datos
                         </button>
                     </div>
                 </div>
 
-                <div class="bg-slate-900 p-4 rounded-lg text-white shadow-lg">
-                    <p class="text-[9px] font-bold text-blue-400 uppercase">Total Horas</p>
-                    <span id="total-hours" class="text-2xl font-extrabold">00:00:00</span>
+                <div class="bg-servilang-dark p-4 rounded-lg text-white shadow-lg">
+                    <div class="flex justify-between items-center mb-1">
+                        <p class="text-[9px] font-bold text-servilang-accent uppercase tracking-tighter">Total Horas Período</p>
+                        <span id="record-count-badge" class="text-[8px] bg-white/10 px-1.5 py-0.5 rounded uppercase">0 días</span>
+                    </div>
+                    <span id="total-hours" class="text-2xl font-brand font-extrabold tracking-tight">00:00:00</span>
                     <div class="mt-3 pt-2 border-t border-white/10">
-                        <p id="summary-user-name" class="text-[10px] font-bold uppercase">Sin trabajador</p>
+                        <p id="summary-user-name" class="text-[10px] font-bold truncate uppercase">Sin trabajador</p>
+                        <p id="summary-user-dni" class="text-[8px] text-white/50 font-mono">DNI: --</p>
                     </div>
                 </div>
             </div>
 
             <div class="lg:col-span-3">
                 <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-600 uppercase">Vista previa de jornada</span>
+                        <span id="record-count" class="bg-white border border-slate-200 text-[10px] px-2 py-1 rounded font-bold text-slate-400 uppercase">Esperando filtros...</span>
+                    </div>
                     <div class="overflow-x-auto">
                         <table class="w-full fichajes-table">
                             <thead>
@@ -74,9 +98,9 @@
                                     <th class="bg-slate-100">Horas</th>
                                 </tr>
                             </thead>
-                            <tbody id="fichajes-table-body">
+                            <tbody id="fichajes-table-body" class="divide-y divide-slate-100">
                                 <tr>
-                                    <td colspan="5" class="py-20 text-slate-400 italic">Seleccione parámetros...</td>
+                                    <td colspan="5" class="py-20 text-slate-400 text-sm italic">Seleccione los parámetros y pulse "Cargar Datos"</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -90,14 +114,16 @@
 
     <script type="module">
         const { jsPDF } = window.jspdf;
-        // ASEGÚRATE DE QUE ESTA URL ES LA CORRECTA Y ESTÁ ACTUALIZADA EN TU GOOGLE SHEETS
         const API_URL = 'https://script.google.com/macros/s/AKfycbxYGU78jptiNS8nk09AItfJd_0gau2yoRMDQuWcYai8aQHktUHysXBJ8DMaP54xGuwprg/exec';
 
         let allFichajes = [];
-        let state = { name: null, dni: null, start: null, end: null };
+        let state = { name: null, dni: null, email: null, start: null, end: null };
 
         async function init() {
-            document.getElementById('end-date').value = new Date().toISOString().split('T')[0];
+            // Inicializar las fechas del filtro por defecto al mes actual de 2026
+            document.getElementById('start-date').value = "2026-05-01";
+            document.getElementById('end-date').value = "2026-05-28";
+            
             try {
                 const res = await fetch(API_URL);
                 const data = await res.json();
@@ -113,15 +139,50 @@
                     opt.dataset.name = u.Nombre_Completo;
                     userSelect.appendChild(opt);
                 });
-            } catch (e) {
-                document.getElementById('user-select').innerHTML = '<option value="">Error de conexión</option>';
+            } catch (e) { 
+                console.error(e);
+                document.getElementById('user-select').innerHTML = '<option value="">Error al cargar</option>';
             }
+        }
+
+        // Parsea cualquier formato caótico de fecha ("YYYY-MM-DD", "D/M/YYYY", ISO) a un objeto Date real y limpio
+        function parseToValidDate(dateStr) {
+            if (!dateStr) return null;
+            let str = String(dateStr).trim().split('T')[0];
+            
+            if (str.includes('/')) {
+                const parts = str.split('/');
+                if (parts.length === 3) {
+                    const day = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10) - 1;
+                    const year = parseInt(parts[2], 10);
+                    return new Date(year, month, day);
+                }
+            }
+            if (str.includes('-')) {
+                const parts = str.split('-');
+                if (parts.length === 3) {
+                    const year = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10) - 1;
+                    const day = parseInt(parts[2], 10);
+                    return new Date(year, month, day);
+                }
+            }
+            const parsed = new Date(str);
+            return isNaN(parsed.getTime()) ? null : parsed;
+        }
+
+        function getCleanTime(iso) {
+            if (!iso) return null;
+            let str = String(iso).trim();
+            if (str.includes('T')) str = str.split('T')[1];
+            return str.substring(0, 8);
         }
 
         function safeTimeToSeconds(timeStr) {
             if (!timeStr || timeStr === '--' || !timeStr.includes(':')) return 0;
             const parts = timeStr.split(':').map(Number);
-            return (parts[0] * 3600) + (parts[1] * 60) + (parts[2] || 0);
+            return ((parts[0] || 0) * 3600) + ((parts[1] || 0) * 60) + (parts[2] || 0);
         }
 
         function formatSecondsToClock(totalSeconds) {
@@ -135,18 +196,31 @@
         document.getElementById('filter-btn').onclick = () => {
             const userSelect = document.getElementById('user-select');
             const email = userSelect.value;
-            state.start = document.getElementById('start-date').value;
-            state.end = document.getElementById('end-date').value;
+            const startInput = document.getElementById('start-date').value;
+            const endInput = document.getElementById('end-date').value;
 
-            if (!email) { alert("Selecciona un trabajador"); return; }
+            if (!email || !startInput || !endInput) {
+                alert("Por favor complete todos los filtros");
+                return;
+            }
 
+            state.start = startInput;
+            state.end = endInput;
             const sel = userSelect.options[userSelect.selectedIndex];
             state.name = sel.dataset.name;
             state.dni = sel.dataset.dni;
+            state.email = email;
 
+            const dateLimitStart = new Date(startInput + "T00:00:00").getTime();
+            const dateLimitEnd = new Date(endInput + "T23:59:59").getTime();
+
+            // Filtrado matemático real por Timestamp numérico
             const filtered = allFichajes.filter(f => {
-                let fDate = String(f.Fecha).split('T')[0];
-                return f.Email_Usuario === email && fDate >= state.start && fDate <= state.end;
+                if (f.Email_Usuario !== email) return false;
+                const fDateObj = parseToValidDate(f.Fecha);
+                if (!fDateObj) return false;
+                const fTime = fDateObj.getTime();
+                return fTime >= dateLimitStart && fTime <= dateLimitEnd;
             });
 
             render(filtered);
@@ -154,56 +228,98 @@
 
         function render(data) {
             const daily = {};
+
             data.forEach(f => {
-                let date = String(f.Fecha).split('T')[0];
-                if (!daily[date]) daily[date] = { id: f.ID_Fichaje || '--', ticks: [] };
+                const fDateObj = parseToValidDate(f.Fecha);
+                if (!fDateObj) return;
                 
-                let time = String(f.Hora).includes('T') ? String(f.Hora).split('T')[1].substring(0,8) : String(f.Hora).substring(0,8);
-                daily[date].ticks.push({ time, turno: f.Turno, secs: safeTimeToSeconds(time) });
+                // Clave estandarizada YYYY-MM-DD para agrupar las filas correctamente
+                const dateKey = fDateObj.toISOString().split('T')[0];
+
+                if (!daily[dateKey]) {
+                    daily[dateKey] = {
+                        rawDate: fDateObj,
+                        firstId: f.ID_Fichaje || '--',
+                        fichajes: []
+                    };
+                }
+
+                const cleanTime = getCleanTime(f.Hora);
+                if (cleanTime) {
+                    daily[dateKey].fichajes.push({
+                        time: cleanTime,
+                        turno: String(f.Turno).trim(),
+                        seconds: safeTimeToSeconds(cleanTime)
+                    });
+                }
             });
 
-            let globalSeconds = 0;
-            const body = document.getElementById('fichajes-table-body');
-            body.innerHTML = '';
+            let globalTotalSeconds = 0;
+            const tableBody = document.getElementById('fichajes-table-body');
+            tableBody.innerHTML = '';
+            
+            // Ordenar las llaves de los días de manera cronológica real
+            const sortedDates = Object.keys(daily).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
-            Object.keys(daily).sort().forEach(date => {
-                const day = daily[date];
+            if(sortedDates.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="5" class="py-20 text-slate-400">No hay registros para este período.</td></tr>';
+                document.getElementById('export-pdf-btn').disabled = true;
+                return;
+            }
+
+            sortedDates.forEach(dateKey => {
+                const dayData = daily[dateKey];
+                let dayTotalSeconds = 0;
+
+                // Forzar ordenación cronológica de marcas dentro del mismo turno para evitar restas invertidas
+                const morningTicks = dayData.fichajes
+                    .filter(f => f.turno === 'Mañana')
+                    .sort((a, b) => a.seconds - b.seconds);
+
+                const afternoonTicks = dayData.fichajes
+                    .filter(f => f.turno === 'Tarde')
+                    .sort((a, b) => a.seconds - b.seconds);
+
+                let morningText = '-';
+                if (morningTicks.length > 0) {
+                    const entradaM = morningTicks[0].time;
+                    const salidaM = morningTicks.length > 1 ? morningTicks[morningTicks.length - 1].time : '--';
+                    morningText = `${entradaM} - ${salidaM}`;
+                    if (morningTicks.length >= 2) {
+                        dayTotalSeconds += (morningTicks[morningTicks.length - 1].seconds - morningTicks[0].seconds);
+                    }
+                }
+
+                let afternoonText = '-';
+                if (afternoonTicks.length > 0) {
+                    const entradaT = afternoonTicks[0].time;
+                    const salidaT = afternoonTicks.length > 1 ? afternoonTicks[afternoonTicks.length - 1].time : '--';
+                    afternoonText = `${entradaT} - ${salidaT}`;
+                    if (afternoonTicks.length >= 2) {
+                        dayTotalSeconds += (afternoonTicks[afternoonTicks.length - 1].seconds - afternoonTicks[0].seconds);
+                    }
+                }
+
+                globalTotalSeconds += dayTotalSeconds;
                 
-                // AQUÍ ESTÁ EL TRUCO: Forzamos la ordenación de menor a mayor pase lo que pase
-                const manana = day.ticks.filter(t => t.turno === 'Mañana').sort((a,b) => a.secs - b.secs);
-                const tarde = day.ticks.filter(t => t.turno === 'Tarde').sort((a,b) => a.secs - b.secs);
+                // Formato visual DD/MM/YYYY para la tabla
+                const visualDate = dateKey.split('-').reverse().join('/');
 
-                let daySecs = 0;
-                let textM = '--';
-                let textT = '--';
-
-                if(manana.length >= 2) {
-                    textM = `${manana[0].time} - ${manana[manana.length-1].time}`;
-                    daySecs += (manana[manana.length-1].secs - manana[0].secs);
-                } else if(manana.length === 1) {
-                    textM = `${manana[0].time} - --`;
-                }
-
-                if(tarde.length >= 2) {
-                    textT = `${tarde[0].time} - ${tarde[tarde.length-1].time}`;
-                    daySecs += (tarde[tarde.length-1].secs - tarde[0].secs);
-                } else if(tarde.length === 1) {
-                    textT = `${tarde[0].time} - --`;
-                }
-
-                globalSeconds += daySecs;
-
-                body.innerHTML += `<tr>
-                    <td class="font-bold">${date.split('-').reverse().join('/')}</td>
-                    <td class="text-xs text-slate-400">${day.id}</td>
-                    <td>${textM}</td>
-                    <td>${textT}</td>
-                    <td class="font-bold text-blue-700 bg-slate-50">${formatSecondsToClock(daySecs)}</td>
-                </tr>`;
+                tableBody.innerHTML += `
+                    <tr>
+                        <td class="font-brand font-bold text-servilang-dark">${visualDate}</td>
+                        <td class="text-[10px] text-slate-300 font-mono">${dayData.firstId}</td>
+                        <td class="text-xs font-semibold text-slate-600">${morningText}</td>
+                        <td class="text-xs font-semibold text-slate-600">${afternoonText}</td>
+                        <td class="font-bold text-servilang-primary bg-slate-50/50">${formatSecondsToClock(dayTotalSeconds)}</td>
+                    </tr>`;
             });
 
             document.getElementById('summary-user-name').textContent = state.name;
-            document.getElementById('total-hours').textContent = formatSecondsToClock(globalSeconds);
+            document.getElementById('summary-user-dni').textContent = `DNI: ${state.dni}`;
+            document.getElementById('total-hours').textContent = formatSecondsToClock(globalTotalSeconds);
+            document.getElementById('record-count').textContent = `${sortedDates.length} JORNADAS FILTRADAS`;
+            document.getElementById('record-count-badge').textContent = `${sortedDates.length} días`;
             document.getElementById('export-pdf-btn').disabled = false;
         }
 

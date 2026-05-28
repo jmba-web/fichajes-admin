@@ -94,10 +94,7 @@
         </div>
     </div>
 
-    <div id="pdf-render-zone" style="width: 800px; position: absolute; left: -9999px; background: white;"></div>
-
     <script type="module">
-        const { jsPDF } = window.jspdf;
         const API_URL = 'https://script.google.com/macros/s/AKfycbxYGU78jptiNS8nk09AItfJd_0gau2yoRMDQuWcYai8aQHktUHysXBJ8DMaP54xGuwprg/exec';
 
         let allFichajes = [];
@@ -161,6 +158,38 @@
             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         }
 
+        // Calcula el tiempo neto emparejando estrictamente Entradas y Salidas consecutivas
+        function calculateNetSeconds(marksArray) {
+            // Ordenamos cronológicamente por segundos de día
+            marksArray.sort((a, b) => a.seconds - b.seconds);
+            
+            let totalSeconds = 0;
+            let currentEntrada = null;
+
+            for (let i = 0; i < marksArray.length; i++) {
+                const mark = marksArray[i];
+                if (mark.type === 'entrada') {
+                    currentEntrada = mark.seconds;
+                } else if (mark.type === 'salida' && currentEntrada !== null) {
+                    totalSeconds += (mark.seconds - currentEntrada);
+                    currentEntrada = null; // Resetear para el siguiente bloque
+                }
+            }
+            return totalSeconds;
+        }
+
+        function formatTurnoString(marksArray) {
+            marksArray.sort((a, b) => a.seconds - b.seconds);
+            const entradas = marksArray.filter(m => m.type === 'entrada').map(m => m.timeStr);
+            const salidas = marksArray.filter(m => m.type === 'salida').map(m => m.timeStr);
+            
+            if (entradas.length === 0 && salidas.length === 0) return "-";
+            
+            const pEntrada = entradas.length > 0 ? entradas[0] : "--:--:--";
+            const uSalida = salidas.length > 0 ? salidas[salidas.length - 1] : "--:--:--";
+            return `${pEntrada} - ${uSalida}`;
+        }
+
         document.getElementById('filter-btn').onclick = () => {
             const userSelect = document.getElementById('user-select');
             const email = userSelect.value;
@@ -205,13 +234,16 @@
                 }
 
                 const cleanTime = extractCleanTime(f.Hora);
+                const tipo = String(f.Estado || f.Tipo || '').trim().toLowerCase(); // Captura "Entrada" o "Salida"
+                const turno = String(f.Turno || '').trim().toLowerCase();
+
                 if (cleanTime) {
                     const markData = {
                         timeStr: cleanTime,
-                        seconds: clockToSeconds(cleanTime)
+                        seconds: clockToSeconds(cleanTime),
+                        type: tipo.includes('entrada') ? 'entrada' : 'salida'
                     };
                     
-                    const turno = String(f.Turno || '').trim().toLowerCase();
                     if (turno.includes('mañana')) {
                         groupedByDay[dayISO].mañana.push(markData);
                     } else if (turno.includes('tarde')) {
@@ -237,34 +269,16 @@
             sortedDays.forEach(dayKey => {
                 const dayData = groupedByDay[dayKey];
                 
-                dayData.mañana.sort((a, b) => a.seconds - b.seconds);
-                dayData.tarde.sort((a, b) => a.seconds - b.seconds);
-
-                let morningSeconds = 0;
-                let morningCellText = '-';
-                if (dayData.mañana.length > 0) {
-                    const entradaM = dayData.mañana[0].timeStr;
-                    const salidaM = dayData.mañana.length > 1 ? dayData.mañana[dayData.mañana.length - 1].timeStr : '--';
-                    morningCellText = `${entradaM} - ${salidaM}`;
-                    if (dayData.mañana.length >= 2) {
-                        morningSeconds = dayData.mañana[dayData.mañana.length - 1].seconds - dayData.mañana[0].seconds;
-                    }
-                }
-
-                let afternoonSeconds = 0;
-                let afternoonCellText = '-';
-                if (dayData.tarde.length > 0) {
-                    const entradaT = dayData.tarde[0].timeStr;
-                    const salidaT = dayData.tarde.length > 1 ? dayData.tarde[dayData.tarde.length - 1].timeStr : '--';
-                    afternoonCellText = `${entradaT} - ${salidaT}`;
-                    if (dayData.tarde.length >= 2) {
-                        afternoonSeconds = dayData.tarde[dayData.tarde.length - 1].seconds - dayData.tarde[0].seconds;
-                    }
-                }
+                // Cálculo matemático exacto basado en parejas reales Entrada-Salida
+                const morningSeconds = calculateNetSeconds(dayData.mañana);
+                const afternoonSeconds = calculateNetSeconds(dayData.tarde);
 
                 const dayTotalSeconds = morningSeconds + afternoonSeconds;
                 totalGlobalSeconds += dayTotalSeconds; 
 
+                // Formateo visual de la interfaz
+                const morningCellText = formatTurnoString(dayData.mañana);
+                const afternoonCellText = formatTurnoString(dayData.tarde);
                 const visualFormattedDate = dayKey.split('-').reverse().join('/');
 
                 body.innerHTML += `

@@ -140,7 +140,7 @@
                 <div id="summary-panel" class="bg-servilang-dark p-4 rounded-lg text-white shadow-lg">
                     <div class="flex justify-between items-center mb-1">
                         <p class="text-[9px] font-bold text-servilang-accent uppercase tracking-tighter">Total Horas</p>
-                        <span id="record-count-badge" class="text-[8px] bg-white/10 px-1.5 py-0.5 rounded uppercase">0 registros</span>
+                        <span id="record-count-badge" class="text-[8px] bg-white/10 px-1.5 py-0.5 rounded uppercase">0 días</span>
                     </div>
                     <div class="flex items-baseline gap-1.5">
                         <span id="total-hours" class="text-2xl font-brand font-extrabold tracking-tight">00:00:00</span>
@@ -226,18 +226,14 @@
         function getCleanTime(iso) {
             if (!iso) return null;
             let str = String(iso).trim();
-            if (str.includes('T')) {
-                str = str.split('T')[1];
-            }
+            if (str.includes('T')) str = str.split('T')[1];
             return str.substring(0, 8);
         }
 
         function getCleanDate(dateString) {
             if (!dateString) return '';
             let str = String(dateString).trim();
-            if (str.includes('T')) {
-                str = str.split('T')[0];
-            }
+            if (str.includes('T')) str = str.split('T')[0];
             if (str.includes('/')) {
                 const parts = str.split('/');
                 if(parts[2] && parts[2].length === 4) {
@@ -249,13 +245,10 @@
 
         function calcSecondsFromTimes(startClock, endClock) {
             if (!startClock || !endClock || startClock === '--' || endClock === '--') return 0;
-            
             const sParts = startClock.split(':').map(Number);
             const eParts = endClock.split(':').map(Number);
-            
             const startSecs = (sParts[0] * 3600) + (sParts[1] * 60) + (sParts[2] || 0);
             const endSecs = (eParts[0] * 3600) + (eParts[1] * 60) + (eParts[2] || 0);
-            
             return endSecs > startSecs ? (endSecs - startSecs) : 0;
         }
 
@@ -291,44 +284,28 @@
         };
 
         function render(data) {
-            // Fase 1: Agrupamos de forma segura por ID_Fichaje para no perder marcas duplicadas
-            const fichajesPorId = {};
-            data.forEach(f => {
-                const id = f.ID_Fichaje;
-                if (!id) return;
-                if (!fichajesPorId[id]) {
-                    fichajesPorId[id] = { Entrada: null, Salida: null, Fecha: getCleanDate(f.Fecha), Turno: f.Turno };
-                }
-                if (f.Tipo_Fichaje === 'Entrada') fichajesPorId[id].Entrada = getCleanTime(f.Hora);
-                if (f.Tipo_Fichaje === 'Salida') fichajesPorId[id].Salida = getCleanTime(f.Hora);
-            });
-
-            // Fase 2: Agrupamos los bloques resueltos por fecha del calendario
             const daily = {};
-            Object.keys(fichajesPorId).forEach(id => {
-                const item = fichajesPorId[id];
-                const date = item.Fecha;
+
+            // Agrupamos de forma simple por fecha, turno y tipo de fichaje
+            data.forEach(f => {
+                const date = getCleanDate(f.Fecha);
                 if (!date) return;
 
                 if (!daily[date]) {
                     daily[date] = {
-                        morningBlocks: [],
-                        afternoonBlocks: [],
-                        ids: []
+                        ids: [],
+                        Mañana: { Entrada: [], Salida: [] },
+                        Tarde: { Entrada: [], Salida: [] }
                     };
                 }
 
-                if (!daily[date].ids.includes(id)) {
-                    daily[date].ids.push(id);
+                if (f.ID_Fichaje && !daily[date].ids.includes(f.ID_Fichaje)) {
+                    daily[date].ids.push(f.ID_Fichaje);
                 }
 
-                const blockText = (item.Entrada || '--') + ' - ' + (item.Salida || '--');
-                const seconds = calcSecondsFromTimes(item.Entrada, item.Salida);
-
-                if (item.Turno === 'Mañana') {
-                    daily[date].morningBlocks.push({ text: blockText, secs: seconds });
-                } else {
-                    daily[date].afternoonBlocks.push({ text: blockText, secs: seconds });
+                const cleanTime = getCleanTime(f.Hora);
+                if (cleanTime && (f.Turno === 'Mañana' || f.Turno === 'Tarde')) {
+                    daily[date][f.Turno][f.Tipo_Fichaje].push(cleanTime);
                 }
             });
 
@@ -344,32 +321,42 @@
             }
 
             dates.forEach(date => {
-                const d = daily[date];
-                
-                // Sumatorio total matemático de todos los bloques válidos del día
+                const dayData = daily[date];
                 let dayTotalSeconds = 0;
-                d.morningBlocks.forEach(b => dayTotalSeconds += b.secs);
-                d.afternoonBlocks.forEach(b => dayTotalSeconds += b.secs);
-                
+
+                // Procesamos Turno Mañana (Ordenamos para asegurar que cogemos la menor Entrada y la mayor Salida)
+                dayData.Mañana.Entrada.sort();
+                dayData.Mañana.Salida.sort();
+                const mEntrada = dayData.Mañana.Entrada[0] || '--';
+                const mSalida = dayData.Mañana.Salida[dayData.Mañana.Salida.length - 1] || '--';
+                let morningText = '-';
+                if (mEntrada !== '--' || mSalida !== '--') {
+                    morningText = `${mEntrada} - ${mSalida}`;
+                    dayTotalSeconds += calcSecondsFromTimes(mEntrada, mSalida);
+                }
+
+                // Procesamos Turno Tarde
+                dayData.Tarde.Entrada.sort();
+                dayData.Tarde.Salida.sort();
+                const tEntrada = dayData.Tarde.Entrada[0] || '--';
+                const tSalida = dayData.Tarde.Salida[dayData.Tarde.Salida.length - 1] || '--';
+                let afternoonText = '-';
+                if (tEntrada !== '--' || tSalida !== '--') {
+                    afternoonText = `${tEntrada} - ${tSalida}`;
+                    dayTotalSeconds += calcSecondsFromTimes(tEntrada, tSalida);
+                }
+
                 globalTotalSeconds += dayTotalSeconds;
 
                 const visualDate = date.includes('-') ? date.split('-').reverse().join('/') : date;
-                const displayId = d.ids.length > 0 ? d.ids.join(', ') : '--';
-
-                const morningHTML = d.morningBlocks.length > 0 
-                    ? d.morningBlocks.map(b => `<span class="block bg-slate-50 px-2 py-0.5 rounded border border-slate-100 my-0.5">${b.text}</span>`).join('') 
-                    : '-';
-                
-                const afternoonHTML = d.afternoonBlocks.length > 0 
-                    ? d.afternoonBlocks.map(b => `<span class="block bg-slate-50 px-2 py-0.5 rounded border border-slate-100 my-0.5">${b.text}</span>`).join('') 
-                    : '-';
+                const displayId = dayData.ids.length > 0 ? dayData.ids.join(', ') : '--';
 
                 tableBody.innerHTML += `
                     <tr>
                         <td class="font-bold text-servilang-dark">${visualDate}</td>
-                        <td class="text-[10px] text-slate-300 font-mono truncate max-w-[100px]" title="${displayId}">${displayId}</td>
-                        <td class="text-xs">${morningHTML}</td>
-                        <td class="text-xs">${afternoonHTML}</td>
+                        <td class="text-[10px] text-slate-300 font-mono truncate max-w-[120px]" title="${displayId}">${displayId}</td>
+                        <td class="text-xs font-semibold text-slate-600">${morningText}</td>
+                        <td class="text-xs font-semibold text-slate-600">${afternoonText}</td>
                         <td class="font-bold text-servilang-primary bg-slate-50/50">${formatSecondsToClock(dayTotalSeconds)}</td>
                     </tr>`;
             });

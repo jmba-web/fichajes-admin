@@ -223,17 +223,17 @@
             }
         }
 
-        // Extrae limpiamente la cadena "HH:MM:SS" o "HH:MM"
+        // Limpia y extrae la hora directamente del string devuelto por la API
         function getCleanTime(iso) {
             if (!iso) return null;
             let str = String(iso).trim();
             if (str.includes('T')) {
                 str = str.split('T')[1];
             }
-            return str.substring(0, 8);
+            return str.substring(0, 8); // Extrae HH:MM:SS de forma segura
         }
 
-        // Convierte las fechas con barra ("26/05/2026") a formato guion ("2026-05-26") para el filtro
+        // Normaliza cualquier formato de fecha (con barras o ISO) a formato AAAA-MM-DD
         function getCleanDate(dateString) {
             if (!dateString) return '';
             let str = String(dateString).trim();
@@ -249,7 +249,7 @@
             return str.substring(0, 10);
         }
 
-        // LÓGICA DE SUMA INMUNE A DESFASES: Calcula la diferencia exacta basándose en segundos puros
+        // Lógica matemática limpia basada en segundos puros del reloj visual
         function calcSecondsFromTimes(startClock, endClock) {
             if (!startClock || !endClock || startClock === '--' || endClock === '--') return 0;
             
@@ -259,11 +259,10 @@
             const startSecs = (sParts[0] * 3600) + (sParts[1] * 60) + (sParts[2] || 0);
             const endSecs = (eParts[0] * 3600) + (eParts[1] * 60) + (eParts[2] || 0);
             
-            // Si la hora de salida es mayor que la de entrada, devolvemos los segundos reales exactos
             return endSecs > startSecs ? (endSecs - startSecs) : 0;
         }
 
-        // Convierte segundos totales acumulados de vuelta a formato legible de reloj (HH:MM:SS)
+        // Transforma segundos acumulados totales de vuelta a formato legible HH:MM:SS
         function formatSecondsToClock(totalSeconds) {
             const h = Math.floor(totalSeconds / 3600);
             const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
@@ -325,7 +324,6 @@
             dates.forEach(date => {
                 const d = daily[date];
                 
-                // Calculamos de forma aislada y exacta los segundos trabajados en cada turno
                 const secsMorning = calcSecondsFromTimes(d.morning.Entrada, d.morning.Salida);
                 const secsAfternoon = calcSecondsFromTimes(d.afternoon.Entrada, d.afternoon.Salida);
                 

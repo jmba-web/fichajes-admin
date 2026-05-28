@@ -223,14 +223,16 @@
             }
         }
 
-        // LIMPIEZA ABSOLUTA: Extrae directamente la hora de la cadena ISO sin alterar minutos ni segundos
+        // CORRECCIÓN RADICAL: Extrae la cadena de texto limpia sin calcular fechas ni aplicar offsets corruptos
         function getCleanTime(isoString) {
             if (!isoString || typeof isoString !== 'string') return null;
-            // Si viene con formato 'PT13H03M06S' o similar de la base de datos, o '1970-01-01T13:03:06.000Z'
+            
+            // Si viene en formato ISO extendido: "1970-01-01T13:03:06.000Z"
             if (isoString.includes('T')) {
-                const timePart = isoString.split('T')[1]; // '13:03:06.000Z'
-                return timePart.substring(0, 8); // '13:03:06'
+                const timePart = isoString.split('T')[1];
+                return timePart.substring(0, 8); // Devuelve "13:03:06"
             }
+            // Si ya viene formateado o recortado limpio desde el backend
             return isoString.substring(0, 8);
         }
 
@@ -239,8 +241,8 @@
             const [sH, sM, sS] = startClock.split(':').map(Number);
             const [eH, eM, eS] = endClock.split(':').map(Number);
             
-            const startSecs = (sH * 3600) + (sM * 60) + sS;
-            const endSecs = (eH * 3600) + (eM * 60) + eS;
+            const startSecs = (sH * 3600) + (sM * 60) + (sS || 0);
+            const endSecs = (eH * 3600) + (eM * 60) + (eS || 0);
             
             return endSecs > startSecs ? (endSecs - startSecs) : 0;
         }

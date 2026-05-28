@@ -243,17 +243,12 @@
             return str.substring(0, 10);
         }
 
-        // Convierte una cadena "HH:MM:SS" a segundos netos desde las 00:00:00
         function safeTimeToSeconds(timeStr) {
-            if (!timeStr || timeStr === '--') return 0;
+            if (!timeStr || timeStr === '--' || !timeStr.includes(':')) return 0;
             const parts = timeStr.split(':').map(Number);
-            const hrs = parts[0] || 0;
-            const mins = parts[1] || 0;
-            const secs = parts[2] || 0;
-            return (hrs * 3600) + (mins * 60) + secs;
+            return ((parts[0] || 0) * 3600) + ((parts[1] || 0) * 60) + (parts[2] || 0);
         }
 
-        // Convierte segundos absolutos de vuelta al formato estándar HH:MM:SS
         function formatSecondsToClock(totalSeconds) {
             if (totalSeconds <= 0) return "0:00:00";
             const h = Math.floor(totalSeconds / 3600);
@@ -325,7 +320,6 @@
                 const dayData = daily[date];
                 let dayTotalSeconds = 0;
 
-                // Separar turnos y ordenarlos cronológicamente (por valor numérico de segundos totales del día)
                 const morningTicks = dayData.fichajes
                     .filter(f => f.turno === 'Mañana')
                     .sort((a, b) => a.seconds - b.seconds);
@@ -334,7 +328,6 @@
                     .filter(f => f.turno === 'Tarde')
                     .sort((a, b) => a.seconds - b.seconds);
 
-                // Cálculo Mañana
                 let morningText = '-';
                 if (morningTicks.length > 0) {
                     const entradaM = morningTicks[0].time;
@@ -346,7 +339,6 @@
                     }
                 }
 
-                // Cálculo Tarde
                 let afternoonText = '-';
                 if (afternoonTicks.length > 0) {
                     const entradaT = afternoonTicks[0].time;

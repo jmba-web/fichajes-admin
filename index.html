@@ -223,17 +223,17 @@
             }
         }
 
-        // Limpia y extrae la hora directamente del string devuelto por la API
+        // Extrae limpiamente cadenas de hora "HH:MM:SS"
         function getCleanTime(iso) {
             if (!iso) return null;
             let str = String(iso).trim();
             if (str.includes('T')) {
                 str = str.split('T')[1];
             }
-            return str.substring(0, 8); // Extrae HH:MM:SS de forma segura
+            return str.substring(0, 8);
         }
 
-        // Normaliza cualquier formato de fecha (con barras o ISO) a formato AAAA-MM-DD
+        // Convierte de manera súper estable fechas (tanto DD/MM/AAAA como ISO) a formato estándar AAAA-MM-DD
         function getCleanDate(dateString) {
             if (!dateString) return '';
             let str = String(dateString).trim();
@@ -249,7 +249,7 @@
             return str.substring(0, 10);
         }
 
-        // Lógica matemática limpia basada en segundos puros del reloj visual
+        // Calcula la diferencia exacta basándose en segundos puros del reloj visual
         function calcSecondsFromTimes(startClock, endClock) {
             if (!startClock || !endClock || startClock === '--' || endClock === '--') return 0;
             
@@ -262,7 +262,7 @@
             return endSecs > startSecs ? (endSecs - startSecs) : 0;
         }
 
-        // Transforma segundos acumulados totales de vuelta a formato legible HH:MM:SS
+        // Transforma segundos totales acumulados de vuelta a formato legible de reloj (HH:MM:SS)
         function formatSecondsToClock(totalSeconds) {
             const h = Math.floor(totalSeconds / 3600);
             const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
@@ -296,17 +296,31 @@
 
         function render(data) {
             const daily = {};
+            
+            // Agrupamos los datos con seguridad asegurándonos de no pisar turnos ni IDs duplicados del mismo día
             data.forEach(f => {
                 const date = getCleanDate(f.Fecha);
                 if (!date) return;
                 
-                if (!daily[date]) daily[date] = { morning: {Entrada: null, Salida: null}, afternoon: {Entrada: null, Salida: null}, id: f.ID_Fichaje };
+                if (!daily[date]) {
+                    daily[date] = { 
+                        morning: { Entrada: null, Salida: null }, 
+                        afternoon: { Entrada: null, Salida: null }, 
+                        ids: [] 
+                    };
+                }
+                
                 const time = getCleanTime(f.Hora);
+                if (f.ID_Fichaje && !daily[date].ids.includes(f.ID_Fichaje)) {
+                    daily[date].ids.push(f.ID_Fichaje);
+                }
                 
                 if (f.Turno === 'Mañana') {
-                    daily[date].morning[f.Tipo_Fichaje] = time;
+                    if (f.Tipo_Fichaje === 'Entrada') daily[date].morning.Entrada = time;
+                    if (f.Tipo_Fichaje === 'Salida') daily[date].morning.Salida = time;
                 } else {
-                    daily[date].afternoon[f.Tipo_Fichaje] = time;
+                    if (f.Tipo_Fichaje === 'Entrada') daily[date].afternoon.Entrada = time;
+                    if (f.Tipo_Fichaje === 'Salida') daily[date].afternoon.Salida = time;
                 }
             });
 
@@ -324,6 +338,7 @@
             dates.forEach(date => {
                 const d = daily[date];
                 
+                // Cálculo ultra preciso por segundos
                 const secsMorning = calcSecondsFromTimes(d.morning.Entrada, d.morning.Salida);
                 const secsAfternoon = calcSecondsFromTimes(d.afternoon.Entrada, d.afternoon.Salida);
                 
@@ -331,11 +346,12 @@
                 globalTotalSeconds += dayTotalSeconds;
 
                 const visualDate = date.includes('-') ? date.split('-').reverse().join('/') : date;
+                const displayId = d.ids.length > 0 ? d.ids.join(', ') : '--';
 
                 tableBody.innerHTML += `
                     <tr>
                         <td class="font-bold text-servilang-dark">${visualDate}</td>
-                        <td class="text-[10px] text-slate-300 font-mono">${d.id}</td>
+                        <td class="text-[10px] text-slate-300 font-mono truncate max-w-[100px]" title="${displayId}">${displayId}</td>
                         <td class="text-xs">
                             ${d.morning.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.morning.Entrada} - ${d.morning.Salida || '--'}</span>` : '-'}
                         </td>
@@ -349,8 +365,8 @@
             document.getElementById('summary-user-name').textContent = state.name;
             document.getElementById('summary-user-dni').textContent = `DNI: ${state.dni}`;
             document.getElementById('total-hours').textContent = formatSecondsToClock(globalTotalSeconds);
-            document.getElementById('record-count').textContent = `${dates.length} REGISTROS ENCONTRADOS`;
-            document.getElementById('record-count-badge').textContent = `${dates.length} registros`;
+            document.getElementById('record-count').textContent = `${dates.length} JORNADAS REGISTRADAS`;
+            document.getElementById('record-count-badge').textContent = `${dates.length} días`;
             document.getElementById('export-pdf-btn').disabled = false;
         }
 

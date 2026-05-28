@@ -291,7 +291,7 @@
         };
 
         function render(data) {
-            // Fase 1: Agrupar primero los fichajes crudos por su ID_Fichaje único
+            // Fase 1: Agrupamos de forma segura por ID_Fichaje para no perder marcas duplicadas
             const fichajesPorId = {};
             data.forEach(f => {
                 const id = f.ID_Fichaje;
@@ -303,7 +303,7 @@
                 if (f.Tipo_Fichaje === 'Salida') fichajesPorId[id].Salida = getCleanTime(f.Hora);
             });
 
-            // Fase 2: Agrupar los bloques calculados por día del calendario
+            // Fase 2: Agrupamos los bloques resueltos por fecha del calendario
             const daily = {};
             Object.keys(fichajesPorId).forEach(id => {
                 const item = fichajesPorId[id];
@@ -346,7 +346,7 @@
             dates.forEach(date => {
                 const d = daily[date];
                 
-                // Sumamos absolutamente todos los segundos de todos los bloques del día
+                // Sumatorio total matemático de todos los bloques válidos del día
                 let dayTotalSeconds = 0;
                 d.morningBlocks.forEach(b => dayTotalSeconds += b.secs);
                 d.afternoonBlocks.forEach(b => dayTotalSeconds += b.secs);
@@ -356,7 +356,6 @@
                 const visualDate = date.includes('-') ? date.split('-').reverse().join('/') : date;
                 const displayId = d.ids.length > 0 ? d.ids.join(', ') : '--';
 
-                // Juntamos los textos si hay múltiples marcas en el mismo turno
                 const morningHTML = d.morningBlocks.length > 0 
                     ? d.morningBlocks.map(b => `<span class="block bg-slate-50 px-2 py-0.5 rounded border border-slate-100 my-0.5">${b.text}</span>`).join('') 
                     : '-';
@@ -458,7 +457,7 @@
 
                     <div style="margin-top: 40px; border-top: 1px solid #f1f5f9; padding-top: 15px;">
                         <p style="font-size: 8px; color: #94a3b8; text-align: justify; line-height: 1.5;">
-                            En cumplimiento del Art. 34.9 del Estatuto de los Trabajadores (Real Decreto-ley 8/2019), este documento certifies las horas efectivamente trabajadas por el empleado arriba mencionado durante el período indicado.
+                            En cumplimiento del Art. 34.9 del Estatuto de los Trabajadores (Real Decreto-ley 8/2019), este documento certifica las horas efectivamente trabajadas por el empleado arriba mencionado durante el período indicado.
                         </p>
                     </div>
                 </div>

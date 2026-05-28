@@ -223,7 +223,6 @@
             }
         }
 
-        // Extrae limpiamente cadenas de hora "HH:MM:SS"
         function getCleanTime(iso) {
             if (!iso) return null;
             let str = String(iso).trim();
@@ -233,7 +232,6 @@
             return str.substring(0, 8);
         }
 
-        // Convierte de manera súper estable fechas (tanto DD/MM/AAAA como ISO) a formato estándar AAAA-MM-DD
         function getCleanDate(dateString) {
             if (!dateString) return '';
             let str = String(dateString).trim();
@@ -249,7 +247,6 @@
             return str.substring(0, 10);
         }
 
-        // Calcula la diferencia exacta basándose en segundos puros del reloj visual
         function calcSecondsFromTimes(startClock, endClock) {
             if (!startClock || !endClock || startClock === '--' || endClock === '--') return 0;
             
@@ -262,7 +259,6 @@
             return endSecs > startSecs ? (endSecs - startSecs) : 0;
         }
 
-        // Transforma segundos totales acumulados de vuelta a formato legible de reloj (HH:MM:SS)
         function formatSecondsToClock(totalSeconds) {
             const h = Math.floor(totalSeconds / 3600);
             const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
@@ -297,7 +293,6 @@
         function render(data) {
             const daily = {};
             
-            // Agrupamos los datos con seguridad asegurándonos de no pisar turnos ni IDs duplicados del mismo día
             data.forEach(f => {
                 const date = getCleanDate(f.Fecha);
                 if (!date) return;
@@ -338,7 +333,6 @@
             dates.forEach(date => {
                 const d = daily[date];
                 
-                // Cálculo ultra preciso por segundos
                 const secsMorning = calcSecondsFromTimes(d.morning.Entrada, d.morning.Salida);
                 const secsAfternoon = calcSecondsFromTimes(d.afternoon.Entrada, d.afternoon.Salida);
                 

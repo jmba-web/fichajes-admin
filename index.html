@@ -158,55 +158,6 @@
             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         }
 
-        // Sistema defensivo definitivo para emparejar marcas de tiempo
-        function calculateNetSeconds(marksArray) {
-            if (marksArray.length < 2) return 0;
-            
-            // Forzar ordenación por hora real pase lo que pase
-            marksArray.sort((a, b) => a.seconds - b.seconds);
-            
-            let totalSeconds = 0;
-            let i = 0;
-
-            while (i < marksArray.length) {
-                const current = marksArray[i];
-                
-                // Si está explícitamente marcado como entrada, buscamos la siguiente salida
-                if (current.type === 'entrada') {
-                    let j = i + 1;
-                    while (j < marksArray.length && marksArray[j].type !== 'salida') {
-                        j++;
-                    }
-                    if (j < marksArray.length) {
-                        totalSeconds += (marksArray[j].seconds - current.seconds);
-                        i = j + 1;
-                    } else {
-                        i++;
-                    }
-                } 
-                // Si la base de datos no tiene etiquetas claras, emparejamos secuencialmente por tiempo cronológico
-                else {
-                    if (i + 1 < marksArray.length) {
-                        totalSeconds += (marksArray[i+1].seconds - current.seconds);
-                        i += 2;
-                    } else {
-                        i++;
-                    }
-                }
-            }
-            return totalSeconds;
-        }
-
-        function formatTurnoString(marksArray) {
-            if (marksArray.length === 0) return "-";
-            marksArray.sort((a, b) => a.seconds - b.seconds);
-            
-            // La primera del día será la Entrada visual, la última la Salida visual
-            const pEntrada = marksArray[0].timeStr;
-            const uSalida = marksArray.length > 1 ? marksArray[marksArray.length - 1].timeStr : "--:--:--";
-            return `${pEntrada} - ${uSalida}`;
-        }
-
         document.getElementById('filter-btn').onclick = () => {
             const userSelect = document.getElementById('user-select');
             const email = userSelect.value;
@@ -251,26 +202,14 @@
                 }
 
                 const cleanTime = extractCleanTime(f.Hora);
-                
-                // Mapeo ultra-seguro: comprueba tanto "Estado" como "Tipo"
-                const estadoRaw = String(f.Estado || f.Tipo || '').toLowerCase();
-                let tipoMarca = 'desconocido';
-                if (estadoRaw.includes('ent')) tipoMarca = 'entrada';
-                if (estadoRaw.includes('sal')) tipoMarca = 'salida';
-
-                const turno = String(f.Turno || '').trim().toLowerCase();
+                const turno = String(f.Turno || '').toLowerCase();
 
                 if (cleanTime) {
-                    const markData = {
-                        timeStr: cleanTime,
-                        seconds: clockToSeconds(cleanTime),
-                        type: tipoMarca
-                    };
-                    
+                    const secondsValue = clockToSeconds(cleanTime);
                     if (turno.includes('mañana') || turno.includes('manana')) {
-                        groupedByDay[dayISO].mañana.push(markData);
+                        groupedByDay[dayISO].mañana.push({ timeStr: cleanTime, secs: secondsValue });
                     } else if (turno.includes('tarde')) {
-                        groupedByDay[dayISO].tarde.push(markData);
+                        groupedByDay[dayISO].tarde.push({ timeStr: cleanTime, secs: secondsValue });
                     }
                 }
             });
@@ -292,16 +231,38 @@
             sortedDays.forEach(dayKey => {
                 const dayData = groupedByDay[dayKey];
                 
-                // Cálculo de segundos netos con el nuevo algoritmo de ordenación forzada
-                const morningSeconds = calculateNetSeconds(dayData.mañana);
-                const afternoonSeconds = calculateNetSeconds(dayData.tarde);
+                // LÓGICA ESTABLE: Ordenamos las marcas cronológicamente
+                dayData.mañana.sort((a, b) => a.secs - b.secs);
+                dayData.tarde.sort((a, b) => a.secs - b.secs);
+
+                let morningSeconds = 0;
+                let morningCellText = '-';
+                if (dayData.mañana.length > 0) {
+                    const primeraM = dayData.mañana[0].timeStr;
+                    const ultimaM = dayData.mañana.length > 1 ? dayData.mañana[dayData.mañana.length - 1].timeStr : '--';
+                    morningCellText = `${primeraM} - ${ultimaM}`;
+                    
+                    if (dayData.mañana.length >= 2) {
+                        // El valor absoluto evita números negativos pase lo que pase
+                        morningSeconds = Math.abs(dayData.mañana[dayData.mañana.length - 1].secs - dayData.mañana[0].secs);
+                    }
+                }
+
+                let afternoonSeconds = 0;
+                let afternoonCellText = '-';
+                if (dayData.tarde.length > 0) {
+                    const primeraT = dayData.tarde[0].timeStr;
+                    const ultimaT = dayData.tarde.length > 1 ? dayData.tarde[dayData.tarde.length - 1].timeStr : '--';
+                    afternoonCellText = `${primeraT} - ${ultimaT}`;
+                    
+                    if (dayData.tarde.length >= 2) {
+                        afternoonSeconds = Math.abs(dayData.tarde[dayData.tarde.length - 1].secs - dayData.tarde[0].secs);
+                    }
+                }
 
                 const dayTotalSeconds = morningSeconds + afternoonSeconds;
-                totalGlobalSeconds += dayTotalSeconds; 
+                totalGlobalSeconds += dayTotalSeconds;
 
-                // Formateo visual estricto
-                const morningCellText = formatTurnoString(dayData.mañana);
-                const afternoonCellText = formatTurnoString(dayData.tarde);
                 const visualFormattedDate = dayKey.split('-').reverse().join('/');
 
                 body.innerHTML += `

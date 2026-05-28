@@ -186,7 +186,6 @@
     <script type="module">
         const { jsPDF } = window.jspdf;
         const API_URL = 'https://script.google.com/macros/s/AKfycbxYGU78jptiNS8nk09AItfJd_0gau2yoRMDQuWcYai8aQHktUHysXBJ8DMaP54xGuwprg/exec';
-        const TIME_OFFSET_MS = 16 * 60 * 60 * 1000;
         const LOGO_URL = "https://www.servilang.es/wp-content/uploads/2021/01/logo-servilang.png";
 
         const EMPRESA = {
@@ -224,15 +223,17 @@
             }
         }
 
-        function getCleanTime(iso) {
-            if (!iso) return null;
-            const d = new Date(new Date(iso).getTime() + TIME_OFFSET_MS);
-            return d.getUTCHours().toString().padStart(2, '0') + ":" + 
-                   d.getUTCMinutes().toString().padStart(2, '0') + ":" + 
-                   d.getUTCSeconds().toString().padStart(2, '0');
+        // LIMPIEZA ABSOLUTA: Extrae directamente la hora de la cadena ISO sin alterar minutos ni segundos
+        function getCleanTime(isoString) {
+            if (!isoString || typeof isoString !== 'string') return null;
+            // Si viene con formato 'PT13H03M06S' o similar de la base de datos, o '1970-01-01T13:03:06.000Z'
+            if (isoString.includes('T')) {
+                const timePart = isoString.split('T')[1]; // '13:03:06.000Z'
+                return timePart.substring(0, 8); // '13:03:06'
+            }
+            return isoString.substring(0, 8);
         }
 
-        // Calcula matemáticamente la diferencia real en segundos entre Entrada y Salida
         function calcSecondsFromTimes(startClock, endClock) {
             if (!startClock || !endClock) return 0;
             const [sH, sM, sS] = startClock.split(':').map(Number);
@@ -303,7 +304,6 @@
             dates.forEach(date => {
                 const d = daily[date];
                 
-                // Cálculo de segundos exacto por turnos autónomos
                 const secsMorning = calcSecondsFromTimes(d.morning.Entrada, d.morning.Salida);
                 const secsAfternoon = calcSecondsFromTimes(d.afternoon.Entrada, d.afternoon.Salida);
                 

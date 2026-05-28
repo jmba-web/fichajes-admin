@@ -259,6 +259,13 @@
             return endSecs > startSecs ? (endSecs - startSecs) : 0;
         }
 
+        // Convierte los segundos a formato decimal tradicional (ej: 7.10 h o 6.99 h)
+        function formatSecondsToDecimal(totalSeconds) {
+            const decimalHours = totalSeconds / 3600;
+            return decimalHours.toFixed(2) + " h";
+        }
+
+        // Para el resumen general de la tarjeta azul seguimos manteniendo el formato reloj HH:MM:SS de control oficial
         function formatSecondsToClock(totalSeconds) {
             const h = Math.floor(totalSeconds / 3600);
             const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
@@ -352,7 +359,7 @@
                         <td class="text-xs">
                             ${d.afternoon.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.afternoon.Entrada} - ${d.afternoon.Salida || '--'}</span>` : '-'}
                         </td>
-                        <td class="font-bold text-servilang-primary bg-slate-50/50">${formatSecondsToClock(dayTotalSeconds)}</td>
+                        <td class="font-bold text-servilang-primary bg-slate-50/50">${formatSecondsToDecimal(dayTotalSeconds)}</td>
                     </tr>`;
             });
 

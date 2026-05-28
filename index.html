@@ -243,21 +243,15 @@
             return str.substring(0, 10);
         }
 
-        // Convierte un string "HH:MM:SS" a un número absoluto de segundos para ordenar matemáticamente
+        // Convierte "HH:MM:SS" a segundos absolutos de forma segura
         function timeToSeconds(timeStr) {
-            if (!timeStr) return 0;
+            if (!timeStr || timeStr === '--') return 0;
             const parts = timeStr.split(':').map(Number);
             return (parts[0] * 3600) + (parts[1] * 60) + (parts[2] || 0);
         }
 
-        function calcSecondsFromTimes(startClock, endClock) {
-            if (!startClock || !endClock || startClock === '--' || endClock === '--') return 0;
-            const startSecs = timeToSeconds(startClock);
-            const endSecs = timeToSeconds(endClock);
-            return endSecs > startSecs ? (endSecs - startSecs) : 0;
-        }
-
         function formatSecondsToClock(totalSeconds) {
+            if (totalSeconds < 0) totalSeconds = 0;
             const h = Math.floor(totalSeconds / 3600);
             const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
             const s = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
@@ -297,7 +291,7 @@
 
                 if (!daily[date]) {
                     daily[date] = {
-                        firstId: f.ID_Fichaje || '--', // Nos quedamos estrictamente con el primero que venga
+                        firstId: f.ID_Fichaje || '--',
                         fichajes: []
                     };
                 }
@@ -306,7 +300,8 @@
                 if (cleanTime) {
                     daily[date].fichajes.push({
                         time: cleanTime,
-                        turno: f.Turno
+                        turno: f.Turno,
+                        seconds: timeToSeconds(cleanTime)
                     });
                 }
             });
@@ -326,38 +321,36 @@
                 const dayData = daily[date];
                 let dayTotalSeconds = 0;
 
-                // ORDENACIÓN CRONOLÓGICA REAL: Ordenamos basándonos en el valor numérico de los segundos
-                const morningTimes = dayData.fichajes
+                // Extraemos y ordenamos numéricamente los segundos para garantizar orden cronológico real
+                const morningTicks = dayData.fichajes
                     .filter(f => f.turno === 'Mañana')
-                    .map(f => f.time)
-                    .sort((a, b) => timeToSeconds(a) - timeToSeconds(b));
+                    .sort((a, b) => a.seconds - b.seconds);
 
-                const afternoonTimes = dayData.fichajes
+                const afternoonTicks = dayData.fichajes
                     .filter(f => f.turno === 'Tarde')
-                    .map(f => f.time)
-                    .sort((a, b) => timeToSeconds(a) - timeToSeconds(b));
+                    .sort((a, b) => a.seconds - b.seconds);
 
-                // Formateo visual Mañana
+                // Procesamiento Turno Mañana
                 let morningText = '-';
-                if (morningTimes.length > 0) {
-                    const mEntrada = morningTimes[0];
-                    const mSalida = morningTimes.length > 1 ? morningTimes[1] : '--';
-                    morningText = `${mEntrada} - ${mSalida}`;
+                if (morningTicks.length > 0) {
+                    const entradaM = morningTicks[0].time;
+                    const salidaM = morningTicks.length > 1 ? morningTicks[1].time : '--';
+                    morningText = `${entradaM} - ${salidaM}`;
                     
-                    if(morningTimes[0] && morningTimes[1]) {
-                        dayTotalSeconds += calcSecondsFromTimes(morningTimes[0], morningTimes[1]);
+                    if (morningTicks.length >= 2) {
+                        dayTotalSeconds += (morningTicks[1].seconds - morningTicks[0].seconds);
                     }
                 }
 
-                // Formateo visual Tarde
+                // Procesamiento Turno Tarde
                 let afternoonText = '-';
-                if (afternoonTimes.length > 0) {
-                    const tEntrada = afternoonTimes[0];
-                    const tSalida = afternoonTimes.length > 1 ? afternoonTimes[1] : '--';
-                    afternoonText = `${tEntrada} - ${tSalida}`;
+                if (afternoonTicks.length > 0) {
+                    const entradaT = afternoonTicks[0].time;
+                    const salidaT = afternoonTicks.length > 1 ? afternoonTicks[1].time : '--';
+                    afternoonText = `${entradaT} - ${salidaT}`;
                     
-                    if(afternoonTimes[0] && afternoonTimes[1]) {
-                        dayTotalSeconds += calcSecondsFromTimes(afternoonTimes[0], afternoonTimes[1]);
+                    if (afternoonTicks.length >= 2) {
+                        dayTotalSeconds += (afternoonTicks[1].seconds - afternoonTicks[0].seconds);
                     }
                 }
 

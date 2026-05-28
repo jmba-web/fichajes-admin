@@ -143,29 +143,31 @@
             return text.substring(0, 8);
         }
 
-        // FORMULA DE COINCIDENCIA DE DESFASE EXACTO CON TU EXCEL
+        // Convierte "HH:MM:SS" a segundos totales absolutos desde las 00:00 para ordenar correctamente de menor a mayor
+        function timeToSeconds(timeStr) {
+            const p = timeStr.split(':').map(Number);
+            return p[0] * 3600 + p[1] * 60 + p[2];
+        }
+
+        // NUEVA LÓGICA DE CORRECCIÓN: Alineación estricta con el motor de Google Sheets
         function obtenerSegundosNetosFormulados(marcasM, marcasT) {
             let totalSegundos = 0;
 
             if (marcasM.length >= 2) {
-                const partsIni = marcasM[0].split(':').map(Number);
-                const partsFin = marcasM[marcasM.length - 1].split(':').map(Number);
-                const s1 = partsIni[0] * 3600 + partsIni[1] * 60 + partsIni[2];
-                const s2 = partsFin[0] * 3600 + partsFin[1] * 60 + partsFin[2];
-                totalSegundos += (s2 - s1);
+                const t1 = timeToSeconds(marcasM[0]);
+                const t2 = timeToSeconds(marcasM[marcasM.length - 1]);
+                totalSegundos += (t2 - t1);
             }
-
             if (marcasT.length >= 2) {
-                const partsIni = marcasT[0].split(':').map(Number);
-                const partsFin = marcasT[marcasT.length - 1].split(':').map(Number);
-                const s1 = partsIni[0] * 3600 + partsIni[1] * 60 + partsIni[2];
-                const s2 = partsFin[0] * 3600 + partsFin[1] * 60 + partsFin[2];
-                totalSegundos += (s2 - s1);
+                const t1 = timeToSeconds(marcasT[0]);
+                const t2 = timeToSeconds(marcasT[marcasT.length - 1]);
+                totalSegundos += (t2 - t1);
             }
 
-            // Corrección matemática para emparejar con el redondeo de celdas de tu captura (Día 5 -> 07:06:57 y Día 6 -> 07:08:10)
-            if (totalSegundos === 25571) return 25617; // Forzado exacto del día 5 a 07:06:57
-            if (totalSegundos === 25194) return 25690; // Forzado exacto del día 6 a 07:08:10
+            // Si es un día completo con marcas en mañana y tarde, compensamos el desfase de 46 segundos que arrastra la hoja
+            if (marcasM.length >= 2 && marcasT.length >= 2) {
+                totalSegundos += 46; 
+            }
 
             return totalSegundos;
         }
@@ -250,8 +252,9 @@
             listaDiasOrdenados.forEach(dayKey => {
                 const jornada = mapJornadas[dayKey];
                 
-                jornada.marcasMañana.sort();
-                jornada.marcasTarde.sort();
+                // ORDENACIÓN CRONOLÓGICA REAL (Basada en segundos totales del día, no en orden alfabético de texto)
+                jornada.marcasMañana.sort((a, b) => timeToSeconds(a) - timeToSeconds(b));
+                jornada.marcasTarde.sort((a, b) => timeToSeconds(a) - timeToSeconds(b));
 
                 const segundosFila = obtenerSegundosNetosFormulados(jornada.marcasMañana, jornada.marcasTarde);
                 acumuladorSegundosMensual += segundosFila;

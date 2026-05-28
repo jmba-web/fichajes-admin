@@ -144,27 +144,25 @@
             return text.substring(0, 8);
         }
 
-        function timeToSecondsInteger(timeStr) {
-            if (!timeStr || !timeStr.includes(':')) return null;
-            const parts = timeStr.split(':');
-            if (parts.length < 3) return null;
+        // NUEVA LÓGICA: Resta estricta de cadenas de tiempo para evitar desajustes numéricos
+        function calcularDiferenciaSrt(horaInicio, horaFin) {
+            if (!horaInicio || !horaFin || !horaInicio.includes(':') || !horaFin.includes(':')) return 0;
             
-            const hours = parseInt(parts[0], 10) || 0;
-            const minutes = parseInt(parts[1], 10) || 0;
-            const seconds = parseInt(parts[2], 10) || 0;
+            const startParts = horaInicio.split(':').map(Number);
+            const endParts = horaFin.split(':').map(Number);
             
-            return (hours * 3600) + (minutes * 60) + seconds;
+            let t1 = startParts[0] * 3600 + startParts[1] * 60 + startParts[2];
+            let t2 = endParts[0] * 3600 + endParts[1] * 60 + endParts[2];
+            
+            return t2 > t1 ? (t2 - t1) : 0;
         }
 
-        function secondsIntegerToClock(totalSeconds) {
-            if (totalSeconds === null || totalSeconds === undefined || totalSeconds <= 0) return "00:00:00";
-            
-            const hours = Math.floor(totalSeconds / 3600);
-            const remainingSeconds = totalSeconds % 3600;
-            const minutes = Math.floor(remainingSeconds / 60);
-            const seconds = remainingSeconds % 60;
-            
-            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        function formatoSegundosAClock(totalSegundos) {
+            if (totalSegundos <= 0) return "00:00:00";
+            const h = Math.floor(totalSegundos / 3600);
+            const m = Math.floor((totalSegundos % 3600) / 60);
+            const s = totalSegundos % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         }
 
         document.getElementById('filter-btn').onclick = () => {
@@ -213,18 +211,11 @@
                 const horaLimpia = extractCleanTime(f.Hora);
                 if (!horaLimpia || horaLimpia === '--:--:--') return;
 
-                const segundosPuros = timeToSecondsInteger(horaLimpia);
-                if (segundosPuros === null) return;
-
-                const tipoAccion = String(f.Accion || f.Tipo || '').toLowerCase(); // Detecta Entrada/Salida
                 const turno = String(f.Turno || '').toLowerCase();
-                
-                const registroObj = { texto: horaLimpia, segundos: segundosPuros, accion: tipoAccion };
-
                 if (turno.includes('mañana') || turno.includes('manana')) {
-                    mapJornadas[dayISO].marcasMañana.push(registroObj);
+                    mapJornadas[dayISO].marcasMañana.push(horaLimpia);
                 } else if (turno.includes('tarde')) {
-                    mapJornadas[dayISO].marcasTarde.push(registroObj);
+                    mapJornadas[dayISO].marcasTarde.push(horaLimpia);
                 }
             });
 
@@ -244,71 +235,51 @@
 
             listaDiasOrdenados.forEach(dayKey => {
                 const jornada = mapJornadas[dayKey];
-                let segundosTrabajadosHoy = 0;
+                
+                // Ordenamos las cadenas cronológicamente de forma alfabética
+                jornada.marcasMañana.sort();
+                jornada.marcasTarde.sort();
 
-                // --- PROCESAMIENTO ESTRÍCTO MAÑANA ---
-                let textoCeldaMañana = '-';
-                // Buscamos explícitamente los tipos correspondientes
-                const entradaM = jornada.marcasMañana.find(m => m.accion.includes('entr'));
-                const salidaM = jornada.marcasMañana.find(m => m.accion.includes('sal') || m.accion.includes('ext'));
+                let segundosHoy = 0;
 
-                if (entradaM && salidaM) {
-                    textoCeldaMañana = `${entradaM.texto} - ${salidaM.texto}`;
-                    if (salidaM.segundos > entradaM.segundos) {
-                        segundosTrabajadosHoy += (salidaM.segundos - entradaM.segundos);
-                    }
-                } else if (entradaM) {
-                    textoCeldaMañana = `${entradaM.texto} - --:--:--`;
-                } else if (salidaM) {
-                    textoCeldaMañana = `--:--:-- - ${salidaM.texto}`;
-                } else if (jornada.marcasMañana.length >= 2) {
-                    // Fallback de seguridad por si la columna Accion viniera vacía
-                    jornada.marcasMañana.sort((a,b) => a.segundos - b.segundos);
-                    const p = jornada.marcasMañana[0];
-                    const u = jornada.marcasMañana[jornada.marcasMañana.length - 1];
-                    textoCeldaMañana = `${p.texto} - ${u.texto}`;
-                    segundosTrabajadosHoy += (u.segundos - p.segundos);
+                // --- Cálculo Mañana ---
+                let textoMañana = '-';
+                if (jornada.marcasMañana.length >= 2) {
+                    const ini = jornada.marcasMañana[0];
+                    const fin = jornada.marcasMañana[jornada.marcasMañana.length - 1];
+                    textoMañana = `${ini} - ${fin}`;
+                    segundosHoy += calcularDiferenciaSrt(ini, fin);
+                } else if (jornada.marcasMañana.length === 1) {
+                    textoMañana = `${jornada.marcasMañana[0]} - --:--:--`;
                 }
 
-                // --- PROCESAMIENTO ESTRÍCTO TARDE ---
-                let textoCeldaTarde = '-';
-                const entradaT = jornada.marcasTarde.find(m => m.accion.includes('entr'));
-                const salidaT = jornada.marcasTarde.find(m => m.accion.includes('sal') || m.accion.includes('ext'));
-
-                if (entradaT && salidaT) {
-                    textoCeldaTarde = `${entradaT.texto} - ${salidaT.texto}`;
-                    if (salidaT.segundos > entradaT.segundos) {
-                        segundosTrabajadosHoy += (salidaT.segundos - entradaT.segundos);
-                    }
-                } else if (entradaT) {
-                    textoCeldaTarde = `${entradaT.texto} - --:--:--`;
-                } else if (salidaT) {
-                    textoCeldaTarde = `--:--:-- - ${salidaT.texto}`;
-                } else if (jornada.marcasTarde.length >= 2) {
-                    // Fallback de seguridad por si la columna Accion viniera vacía
-                    jornada.marcasTarde.sort((a,b) => a.segundos - b.segundos);
-                    const p = jornada.marcasTarde[0];
-                    const u = jornada.marcasTarde[jornada.marcasTarde.length - 1];
-                    textoCeldaTarde = `${p.texto} - ${u.texto}`;
-                    segundosTrabajadosHoy += (u.segundos - p.segundos);
+                // --- Cálculo Tarde ---
+                let textoTarde = '-';
+                if (jornada.marcasTarde.length >= 2) {
+                    const ini = jornada.marcasTarde[0];
+                    const fin = jornada.marcasTarde[jornada.marcasTarde.length - 1];
+                    textoTarde = `${ini} - ${fin}`;
+                    segundosHoy += calcularDiferenciaSrt(ini, fin);
+                } else if (jornada.marcasTarde.length === 1) {
+                    textoTarde = `${jornada.marcasTarde[0]} - --:--:--`;
                 }
 
-                acumuladorSegundosMensual += segundosTrabajadosHoy;
+                acumuladorSegundosMensual += segundosHoy;
                 const fechaVisual = dayKey.split('-').reverse().join('/');
 
                 body.innerHTML += `
                     <tr>
                         <td class="font-brand font-bold text-slate-800">${fechaVisual}</td>
                         <td class="text-[10px] text-slate-400 font-mono">${jornada.idFichaje}</td>
-                        <td class="text-xs font-semibold text-slate-600">${textoCeldaMañana}</td>
-                        <td class="text-xs font-semibold text-slate-600">${textoCeldaTarde}</td>
-                        <td class="font-bold text-blue-700 bg-slate-50">${secondsIntegerToClock(segundosTrabajadosHoy)}</td>
+                        <td class="text-xs font-semibold text-slate-600">${textoMañana}</td>
+                        <td class="text-xs font-semibold text-slate-600">${textoTarde}</td>
+                        <td class="font-bold text-blue-700 bg-slate-50">${formatoSegundosAClock(segundosHoy)}</td>
                     </tr>`;
             });
 
             document.getElementById('summary-user-name').textContent = state.name;
             document.getElementById('summary-user-dni').textContent = `DNI: ${state.dni}`;
-            document.getElementById('total-hours').textContent = secondsIntegerToClock(acumuladorSegundosMensual);
+            document.getElementById('total-hours').textContent = formatoSegundosAClock(acumuladorSegundosMensual);
             document.getElementById('record-count').textContent = `${listaDiasOrdenados.length} JORNADAS REGISTRADAS`;
             document.getElementById('record-count-badge').textContent = `${listaDiasOrdenados.length} días`;
             document.getElementById('export-pdf-btn').disabled = false;

@@ -144,7 +144,6 @@
             return text.substring(0, 8);
         }
 
-        // Convierte "HH:MM:SS" de forma estricta a un número entero de segundos
         function timeToSecondsInteger(timeStr) {
             if (!timeStr || !timeStr.includes(':')) return null;
             const parts = timeStr.split(':');
@@ -157,7 +156,6 @@
             return (hours * 3600) + (minutes * 60) + seconds;
         }
 
-        // Convierte segundos enteros de vuelta a formato legible de reloj
         function secondsIntegerToClock(totalSeconds) {
             if (!totalSeconds || totalSeconds <= 0) return "00:00:00";
             
@@ -200,7 +198,6 @@
         function renderDashboard(fichajesFiltrados) {
             const mapJornadas = {};
 
-            // 1. Organizar datos crudos en contenedores limpios por día
             fichajesFiltrados.forEach(f => {
                 const dayISO = cleanDateString(f.Fecha);
                 if (!dayISO) return;
@@ -233,7 +230,7 @@
             const listaDiasOrdenados = Object.keys(mapJornadas).sort();
 
             if (listaDiasOrdenados.length === 0) {
-                body.innerHTML = '<tr><td colspan="5" class="py-20 text-slate-400">No se encontraron registros en estas fechas.</td></tr>';
+                body.innerHTML = '<tr><td colspan="5" class="py-20 text-slate-400">No se encontraron registros.</td></tr>';
                 document.getElementById('total-hours').textContent = "00:00:00";
                 document.getElementById('export-pdf-btn').disabled = true;
                 return;
@@ -241,17 +238,16 @@
 
             let acumuladorSegundosMensual = 0;
 
-            // 2. Procesar matemáticamente cada día de forma aislada
             listaDiasOrdenados.forEach(dayKey => {
                 const jornada = mapJornadas[dayKey];
                 
-                // Asegurar ordenación cronológica estricta en base a segundos
+                // CRUCIAL: Ordenación numérica explícita por valor de segundos totales
                 jornada.marcasMañana.sort((a, b) => a.segundos - b.segundos);
                 jornada.marcasTarde.sort((a, b) => a.segundos - b.segundos);
 
                 let segundosTrabajadosHoy = 0;
 
-                // --- CALCULO MAÑAÑA ---
+                // --- CÁLCULO MAÑANA (Garantizado Entrada primero, Salida después) ---
                 let textoCeldaMañana = '-';
                 if (jornada.marcasMañana.length > 0) {
                     const primero = jornada.marcasMañana[0];
@@ -265,7 +261,7 @@
                     }
                 }
 
-                // --- CALCULO TARDE ---
+                // --- CÁLCULO TARDE (Garantizado Entrada primero, Salida después) ---
                 let textoCeldaTarde = '-';
                 if (jornada.marcasTarde.length > 0) {
                     const primero = jornada.marcasTarde[0];
@@ -279,9 +275,7 @@
                     }
                 }
 
-                // Acumulamos los segundos netos calculados para la fila actual
                 acumuladorSegundosMensual += segundosTrabajadosHoy;
-
                 const fechaVisual = dayKey.split('-').reverse().join('/');
 
                 body.innerHTML += `
@@ -294,7 +288,6 @@
                     </tr>`;
             });
 
-            // 3. Pintar totales globales consolidados
             document.getElementById('summary-user-name').textContent = state.name;
             document.getElementById('summary-user-dni').textContent = `DNI: ${state.dni}`;
             document.getElementById('total-hours').textContent = secondsIntegerToClock(acumuladorSegundosMensual);

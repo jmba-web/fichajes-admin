@@ -203,13 +203,21 @@
 
                 const cleanTime = extractCleanTime(f.Hora);
                 const turno = String(f.Turno || '').toLowerCase();
+                const estado = String(f.Estado || f.Tipo || '').toLowerCase();
 
                 if (cleanTime) {
                     const secondsValue = clockToSeconds(cleanTime);
+                    const item = { 
+                        timeStr: cleanTime, 
+                        secs: secondsValue,
+                        isEntrada: estado.includes('ent'),
+                        isSalida: estado.includes('sal')
+                    };
+
                     if (turno.includes('mañana') || turno.includes('manana')) {
-                        groupedByDay[dayISO].mañana.push({ timeStr: cleanTime, secs: secondsValue });
+                        groupedByDay[dayISO].mañana.push(item);
                     } else if (turno.includes('tarde')) {
-                        groupedByDay[dayISO].tarde.push({ timeStr: cleanTime, secs: secondsValue });
+                        groupedByDay[dayISO].tarde.push(item);
                     }
                 }
             });
@@ -231,32 +239,33 @@
             sortedDays.forEach(dayKey => {
                 const dayData = groupedByDay[dayKey];
                 
-                // LÓGICA ESTABLE: Ordenamos las marcas cronológicamente
+                // Ordenar cronológicamente de forma estricta
                 dayData.mañana.sort((a, b) => a.secs - b.secs);
                 dayData.tarde.sort((a, b) => a.secs - b.secs);
 
+                // --- PROCESAR MAÑANA ---
                 let morningSeconds = 0;
                 let morningCellText = '-';
                 if (dayData.mañana.length > 0) {
-                    const primeraM = dayData.mañana[0].timeStr;
-                    const ultimaM = dayData.mañana.length > 1 ? dayData.mañana[dayData.mañana.length - 1].timeStr : '--';
-                    morningCellText = `${primeraM} - ${ultimaM}`;
+                    const entradaM = dayData.mañana.find(m => m.isEntrada) || dayData.mañana[0];
+                    const salidaM = dayData.mañana.find(m => m.isSalida) || (dayData.mañana.length > 1 ? dayData.mañana[dayData.mañana.length - 1] : null);
                     
-                    if (dayData.mañana.length >= 2) {
-                        // El valor absoluto evita números negativos pase lo que pase
-                        morningSeconds = Math.abs(dayData.mañana[dayData.mañana.length - 1].secs - dayData.mañana[0].secs);
+                    morningCellText = `${entradaM.timeStr} - ${salidaM ? salidaM.timeStr : '--:--:--'}`;
+                    if (salidaM) {
+                        morningSeconds = Math.max(0, salidaM.secs - entradaM.secs);
                     }
                 }
 
+                // --- PROCESAR TARDE ---
                 let afternoonSeconds = 0;
                 let afternoonCellText = '-';
                 if (dayData.tarde.length > 0) {
-                    const primeraT = dayData.tarde[0].timeStr;
-                    const ultimaT = dayData.tarde.length > 1 ? dayData.tarde[dayData.tarde.length - 1].timeStr : '--';
-                    afternoonCellText = `${primeraT} - ${ultimaT}`;
+                    const entradaT = dayData.tarde.find(t => t.isEntrada) || dayData.tarde[0];
+                    const salidaT = dayData.tarde.find(t => t.isSalida) || (dayData.tarde.length > 1 ? dayData.tarde[dayData.tarde.length - 1] : null);
                     
-                    if (dayData.tarde.length >= 2) {
-                        afternoonSeconds = Math.abs(dayData.tarde[dayData.tarde.length - 1].secs - dayData.tarde[0].secs);
+                    afternoonCellText = `${entradaT.timeStr} - ${salidaT ? salidaT.timeStr : '--:--:--'}`;
+                    if (salidaT) {
+                        afternoonSeconds = Math.max(0, salidaT.secs - entradaT.secs);
                     }
                 }
 

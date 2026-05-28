@@ -8,22 +8,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        servilang: {
-                            dark: '#002855',
-                            primary: '#004b93',
-                            accent: '#00a8e8',
-                            slate: '#f4f7f9'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
     <style>
         body { font-family: 'Open Sans', sans-serif; background-color: #f8fafc; color: #1e293b; }
         h1, h2, h3, .font-brand { font-family: 'Montserrat', sans-serif; }
@@ -36,9 +20,9 @@
     <div class="max-w-7xl mx-auto">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 border-b border-slate-200 pb-6">
             <div class="flex items-center gap-6">
-                <h1 class="text-xl font-extrabold text-servilang-dark uppercase tracking-tight">Control <span class="text-servilang-primary font-light">Horario</span></h1>
+                <h1 class="text-xl font-extrabold text-slate-800 uppercase">Control <span class="text-blue-700 font-light">Horario</span></h1>
             </div>
-            <button id="export-pdf-btn" disabled class="bg-servilang-primary hover:bg-servilang-dark text-white px-8 py-3 rounded font-bold text-sm uppercase tracking-wider disabled:opacity-50 transition-colors">
+            <button id="export-pdf-btn" disabled class="bg-blue-700 hover:bg-blue-800 text-white px-8 py-3 rounded font-bold text-sm uppercase disabled:opacity-50 transition-colors">
                 Generar Informe PDF
             </button>
         </header>
@@ -46,11 +30,11 @@
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div class="lg:col-span-1 space-y-6">
                 <div class="card-corporate p-6">
-                    <h3 class="text-sm font-bold text-servilang-dark mb-6 border-b pb-2 uppercase text-center">Configuración</h3>
+                    <h3 class="text-sm font-bold mb-6 border-b pb-2 uppercase text-center text-slate-700">Filtros</h3>
                     <div class="space-y-4">
                         <div>
                             <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Trabajador</label>
-                            <select id="user-select" class="w-full border border-slate-200 p-2.5 rounded text-sm focus:border-servilang-primary outline-none">
+                            <select id="user-select" class="w-full border border-slate-200 p-2.5 rounded text-sm outline-none bg-white">
                                 <option value="">Cargando empleados...</option>
                             </select>
                         </div>
@@ -62,21 +46,21 @@
                             <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Hasta</label>
                             <input type="date" id="end-date" class="w-full border border-slate-200 p-2.5 rounded text-sm outline-none">
                         </div>
-                        <button id="filter-btn" class="w-full bg-servilang-dark text-white py-3 rounded font-bold text-xs uppercase hover:bg-black transition-colors">
+                        <button id="filter-btn" class="w-full bg-slate-900 hover:bg-black text-white py-3 rounded font-bold text-xs uppercase transition-colors">
                             Cargar Datos
                         </button>
                     </div>
                 </div>
 
-                <div class="bg-servilang-dark p-4 rounded-lg text-white shadow-lg">
+                <div class="bg-slate-900 p-4 rounded-lg text-white shadow-lg">
                     <div class="flex justify-between items-center mb-1">
-                        <p class="text-[9px] font-bold text-servilang-accent uppercase tracking-tighter">Total Horas Período</p>
+                        <p class="text-[9px] font-bold text-blue-400 uppercase">Total Horas Computadas</p>
                         <span id="record-count-badge" class="text-[8px] bg-white/10 px-1.5 py-0.5 rounded uppercase">0 días</span>
                     </div>
-                    <span id="total-hours" class="text-2xl font-brand font-extrabold tracking-tight">00:00:00</span>
+                    <span id="total-hours" class="text-2xl font-brand font-extrabold">00:00:00</span>
                     <div class="mt-3 pt-2 border-t border-white/10">
-                        <p id="summary-user-name" class="text-[10px] font-bold truncate uppercase">Sin trabajador</p>
-                        <p id="summary-user-dni" class="text-[8px] text-white/50 font-mono">DNI: --</p>
+                        <p id="summary-user-name" class="text-[10px] font-bold truncate uppercase text-slate-200">Sin trabajador</p>
+                        <p id="summary-user-dni" class="text-[8px] text-slate-400 font-mono">DNI: --</p>
                     </div>
                 </div>
             </div>
@@ -84,23 +68,23 @@
             <div class="lg:col-span-3">
                 <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                     <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                        <span class="text-xs font-bold text-slate-600 uppercase">Vista previa de jornada</span>
-                        <span id="record-count" class="bg-white border border-slate-200 text-[10px] px-2 py-1 rounded font-bold text-slate-400 uppercase">Esperando filtros...</span>
+                        <span class="text-xs font-bold text-slate-600 uppercase">Registros de Jornada</span>
+                        <span id="record-count" class="text-[10px] px-2 py-1 font-bold text-slate-400 uppercase">Esperando acción...</span>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full fichajes-table">
                             <thead>
                                 <tr>
                                     <th>Fecha</th>
-                                    <th>ID</th>
+                                    <th>ID Referencia</th>
                                     <th>Turno Mañana</th>
                                     <th>Turno Tarde</th>
-                                    <th class="bg-slate-100">Horas</th>
+                                    <th class="bg-slate-100">Total Día</th>
                                 </tr>
                             </thead>
-                            <tbody id="fichajes-table-body" class="divide-y divide-slate-100">
+                            <tbody id="fichajes-table-body">
                                 <tr>
-                                    <td colspan="5" class="py-20 text-slate-400 text-sm italic">Seleccione los parámetros y pulse "Cargar Datos"</td>
+                                    <td colspan="5" class="py-20 text-slate-400 text-sm italic">Seleccione los parámetros de búsqueda</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -120,18 +104,18 @@
         let state = { name: null, dni: null, email: null, start: null, end: null };
 
         async function init() {
-            // Inicializar las fechas del filtro por defecto al mes actual de 2026
+            // Fechas por defecto basadas en tus capturas de Mayo 2026
             document.getElementById('start-date').value = "2026-05-01";
             document.getElementById('end-date').value = "2026-05-28";
             
             try {
                 const res = await fetch(API_URL);
                 const data = await res.json();
-                allFichajes = data.fichajes;
+                allFichajes = data.fichajes || [];
                 
                 const userSelect = document.getElementById('user-select');
                 userSelect.innerHTML = '<option value="">Seleccionar empleado...</option>';
-                data.usuarios.forEach(u => {
+                (data.usuarios || []).forEach(u => {
                     const opt = document.createElement('option');
                     opt.value = u.Email_Usuario;
                     opt.textContent = u.Nombre_Completo;
@@ -139,187 +123,175 @@
                     opt.dataset.name = u.Nombre_Completo;
                     userSelect.appendChild(opt);
                 });
-            } catch (e) { 
-                console.error(e);
-                document.getElementById('user-select').innerHTML = '<option value="">Error al cargar</option>';
+            } catch (e) {
+                console.error("Error cargando base de datos inicial:", e);
+                document.getElementById('user-select').innerHTML = '<option value="">Error de conexión</option>';
             }
         }
 
-        // Parsea cualquier formato caótico de fecha ("YYYY-MM-DD", "D/M/YYYY", ISO) a un objeto Date real y limpio
-        function parseToValidDate(dateStr) {
-            if (!dateStr) return null;
-            let str = String(dateStr).trim().split('T')[0];
+        // Convierte de forma robusta cualquier string de fecha de Google Sheets a un objeto Date puro
+        function parseCleanDate(input) {
+            if (!input) return null;
+            let text = String(input).trim().split('T')[0];
             
-            if (str.includes('/')) {
-                const parts = str.split('/');
-                if (parts.length === 3) {
-                    const day = parseInt(parts[0], 10);
-                    const month = parseInt(parts[1], 10) - 1;
-                    const year = parseInt(parts[2], 10);
-                    return new Date(year, month, day);
+            // Caso 1: Formato "DD/MM/YYYY" (Común en hojas de cálculo en español)
+            if (text.includes('/')) {
+                const p = text.split('/');
+                if (p.length === 3) {
+                    return new Date(parseInt(p[2], 10), parseInt(p[1], 10) - 1, parseInt(p[0], 10));
                 }
             }
-            if (str.includes('-')) {
-                const parts = str.split('-');
-                if (parts.length === 3) {
-                    const year = parseInt(parts[0], 10);
-                    const month = parseInt(parts[1], 10) - 1;
-                    const day = parseInt(parts[2], 10);
-                    return new Date(year, month, day);
+            // Caso 2: Formato estándar HTML "YYYY-MM-DD"
+            if (text.includes('-')) {
+                const p = text.split('-');
+                if (p.length === 3) {
+                    return new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
                 }
             }
-            const parsed = new Date(str);
-            return isNaN(parsed.getTime()) ? null : parsed;
+            const raw = new Date(text);
+            return isNaN(raw.getTime()) ? null : raw;
         }
 
-        function getCleanTime(iso) {
-            if (!iso) return null;
-            let str = String(iso).trim();
-            if (str.includes('T')) str = str.split('T')[1];
-            return str.substring(0, 8);
+        function extractCleanTime(timeField) {
+            if (!timeField) return "";
+            let text = String(timeField).trim();
+            if (text.includes('T')) text = text.split('T')[1];
+            return text.substring(0, 8);
         }
 
-        function safeTimeToSeconds(timeStr) {
-            if (!timeStr || timeStr === '--' || !timeStr.includes(':')) return 0;
-            const parts = timeStr.split(':').map(Number);
+        function clockToSeconds(clockStr) {
+            if (!clockStr || !clockStr.includes(':')) return 0;
+            const parts = clockStr.split(':').map(Number);
             return ((parts[0] || 0) * 3600) + ((parts[1] || 0) * 60) + (parts[2] || 0);
         }
 
-        function formatSecondsToClock(totalSeconds) {
-            if (totalSeconds <= 0) return "00:00:00";
-            const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
-            const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
-            const s = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
+        function secondsToClock(totalSecs) {
+            if (totalSecs <= 0) return "00:00:00";
+            const h = Math.floor(totalSecs / 3600).toString().padStart(2, '0');
+            const m = Math.floor((totalSecs % 3600) / 60).toString().padStart(2, '0');
+            const s = Math.floor(totalSecs % 60).toString().padStart(2, '0');
             return `${h}:${m}:${s}`;
         }
 
         document.getElementById('filter-btn').onclick = () => {
             const userSelect = document.getElementById('user-select');
             const email = userSelect.value;
-            const startInput = document.getElementById('start-date').value;
-            const endInput = document.getElementById('end-date').value;
+            const startStr = document.getElementById('start-date').value;
+            const endStr = document.getElementById('end-date').value;
 
-            if (!email || !startInput || !endInput) {
-                alert("Por favor complete todos los filtros");
+            if (!email || !startStr || !endStr) {
+                alert("Completa todos los campos del filtro");
                 return;
             }
 
-            state.start = startInput;
-            state.end = endInput;
-            const sel = userSelect.options[userSelect.selectedIndex];
-            state.name = sel.dataset.name;
-            state.dni = sel.dataset.dni;
+            state.start = startStr;
+            state.end = endStr;
+            const selectedOpt = userSelect.options[userSelect.selectedIndex];
+            state.name = selectedOpt.dataset.name;
+            state.dni = selectedOpt.dataset.dni;
             state.email = email;
 
-            const dateLimitStart = new Date(startInput + "T00:00:00").getTime();
-            const dateLimitEnd = new Date(endInput + "T23:59:59").getTime();
+            // Creamos marcas temporales de comparación exacta a las 00:00 y las 23:59
+            const tStart = new Date(startStr + "T00:00:00").getTime();
+            const tEnd = new Date(endStr + "T23:59:59").getTime();
 
-            // Filtrado matemático real por Timestamp numérico
             const filtered = allFichajes.filter(f => {
-                if (f.Email_Usuario !== email) return false;
-                const fDateObj = parseToValidDate(f.Fecha);
-                if (!fDateObj) return false;
-                const fTime = fDateObj.getTime();
-                return fTime >= dateLimitStart && fTime <= dateLimitEnd;
+                if (String(f.Email_Usuario).trim() !== email.trim()) return false;
+                const parsedDate = parseCleanDate(f.Fecha);
+                if (!parsedDate) return false;
+                const tCurrent = parsedDate.getTime();
+                return tCurrent >= tStart && tCurrent <= tEnd;
             });
 
-            render(filtered);
+            renderDashboard(filtered);
         };
 
-        function render(data) {
-            const daily = {};
+        function renderDashboard(fichajesFiltrados) {
+            const groupedByDay = {};
 
-            data.forEach(f => {
-                const fDateObj = parseToValidDate(f.Fecha);
-                if (!fDateObj) return;
-                
-                // Clave estandarizada YYYY-MM-DD para agrupar las filas correctamente
-                const dateKey = fDateObj.toISOString().split('T')[0];
+            // Agrupar marcas por día unificado
+            fichajesFiltrados.forEach(f => {
+                const dateObj = parseCleanDate(f.Fecha);
+                if (!dateObj) return;
 
-                if (!daily[dateKey]) {
-                    daily[dateKey] = {
-                        rawDate: fDateObj,
-                        firstId: f.ID_Fichaje || '--',
-                        fichajes: []
+                const dayISO = dateObj.toISOString().split('T')[0];
+
+                if (!groupedByDay[dayISO]) {
+                    groupedByDay[dayISO] = {
+                        idReference: f.ID_Fichaje || '--',
+                        marks: []
                     };
                 }
 
-                const cleanTime = getCleanTime(f.Hora);
+                const cleanTime = extractCleanTime(f.Hora);
                 if (cleanTime) {
-                    daily[dateKey].fichajes.push({
-                        time: cleanTime,
-                        turno: String(f.Turno).trim(),
-                        seconds: safeTimeToSeconds(cleanTime)
+                    groupedByDay[dayISO].marks.push({
+                        timeStr: cleanTime,
+                        seconds: clockToSeconds(cleanTime),
+                        turno: String(f.Turno || '').trim()
                     });
                 }
             });
 
-            let globalTotalSeconds = 0;
-            const tableBody = document.getElementById('fichajes-table-body');
-            tableBody.innerHTML = '';
-            
-            // Ordenar las llaves de los días de manera cronológica real
-            const sortedDates = Object.keys(daily).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+            let totalGlobalSeconds = 0;
+            const body = document.getElementById('fichajes-table-body');
+            body.innerHTML = '';
 
-            if(sortedDates.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="5" class="py-20 text-slate-400">No hay registros para este período.</td></tr>';
+            const sortedDays = Object.keys(groupedByDay).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+            if (sortedDays.length === 0) {
+                body.innerHTML = '<tr><td colspan="5" class="py-20 text-slate-400">No hay registros coincidentes para este período.</td></tr>';
                 document.getElementById('export-pdf-btn').disabled = true;
                 return;
             }
 
-            sortedDates.forEach(dateKey => {
-                const dayData = daily[dateKey];
-                let dayTotalSeconds = 0;
+            sortedDays.forEach(dayKey => {
+                const dayData = groupedByDay[dayKey];
+                let dayCalculatedSeconds = 0;
 
-                // Forzar ordenación cronológica de marcas dentro del mismo turno para evitar restas invertidas
-                const morningTicks = dayData.fichajes
-                    .filter(f => f.turno === 'Mañana')
-                    .sort((a, b) => a.seconds - b.seconds);
+                // Separar los fichajes por turnos y ordenarlos cronológicamente siempre de MENOR a MAYOR
+                const morning = dayData.marks.filter(m => m.turno === 'Mañana').sort((a,b) => a.seconds - b.seconds);
+                const afternoon = dayData.marks.filter(m => m.turno === 'Tarde').sort((a,b) => a.seconds - b.seconds);
 
-                const afternoonTicks = dayData.fichajes
-                    .filter(f => f.turno === 'Tarde')
-                    .sort((a, b) => a.seconds - b.seconds);
-
-                let morningText = '-';
-                if (morningTicks.length > 0) {
-                    const entradaM = morningTicks[0].time;
-                    const salidaM = morningTicks.length > 1 ? morningTicks[morningTicks.length - 1].time : '--';
-                    morningText = `${entradaM} - ${salidaM}`;
-                    if (morningTicks.length >= 2) {
-                        dayTotalSeconds += (morningTicks[morningTicks.length - 1].seconds - morningTicks[0].seconds);
+                let morningCellText = '-';
+                if (morning.length > 0) {
+                    const firstM = morning[0].timeStr;
+                    const lastM = morning.length > 1 ? morning[morning.length - 1].timeStr : '--';
+                    morningCellText = `${firstM} - ${lastM}`;
+                    if (morning.length >= 2) {
+                        dayCalculatedSeconds += (morning[morning.length - 1].seconds - morning[0].seconds);
                     }
                 }
 
-                let afternoonText = '-';
-                if (afternoonTicks.length > 0) {
-                    const entradaT = afternoonTicks[0].time;
-                    const salidaT = afternoonTicks.length > 1 ? afternoonTicks[afternoonTicks.length - 1].time : '--';
-                    afternoonText = `${entradaT} - ${salidaT}`;
-                    if (afternoonTicks.length >= 2) {
-                        dayTotalSeconds += (afternoonTicks[afternoonTicks.length - 1].seconds - afternoonTicks[0].seconds);
+                let afternoonCellText = '-';
+                if (afternoon.length > 0) {
+                    const firstT = afternoon[0].timeStr;
+                    const lastT = afternoon.length > 1 ? afternoon[afternoon.length - 1].timeStr : '--';
+                    afternoonCellText = `${firstT} - ${lastT}`;
+                    if (afternoon.length >= 2) {
+                        dayCalculatedSeconds += (afternoon[afternoon.length - 1].seconds - afternoon[0].seconds);
                     }
                 }
 
-                globalTotalSeconds += dayTotalSeconds;
-                
-                // Formato visual DD/MM/YYYY para la tabla
-                const visualDate = dateKey.split('-').reverse().join('/');
+                totalGlobalSeconds += dayCalculatedSeconds;
+                const visualFormattedDate = dayKey.split('-').reverse().join('/');
 
-                tableBody.innerHTML += `
+                body.innerHTML += `
                     <tr>
-                        <td class="font-brand font-bold text-servilang-dark">${visualDate}</td>
-                        <td class="text-[10px] text-slate-300 font-mono">${dayData.firstId}</td>
-                        <td class="text-xs font-semibold text-slate-600">${morningText}</td>
-                        <td class="text-xs font-semibold text-slate-600">${afternoonText}</td>
-                        <td class="font-bold text-servilang-primary bg-slate-50/50">${formatSecondsToClock(dayTotalSeconds)}</td>
+                        <td class="font-brand font-bold text-slate-800">${visualFormattedDate}</td>
+                        <td class="text-[10px] text-slate-400 font-mono">${dayData.idReference}</td>
+                        <td class="text-xs font-semibold text-slate-600">${morningCellText}</td>
+                        <td class="text-xs font-semibold text-slate-600">${afternoonCellText}</td>
+                        <td class="font-bold text-blue-700 bg-slate-50">${secondsToClock(dayCalculatedSeconds)}</td>
                     </tr>`;
             });
 
+            // Actualizar interfaz del panel
             document.getElementById('summary-user-name').textContent = state.name;
             document.getElementById('summary-user-dni').textContent = `DNI: ${state.dni}`;
-            document.getElementById('total-hours').textContent = formatSecondsToClock(globalTotalSeconds);
-            document.getElementById('record-count').textContent = `${sortedDates.length} JORNADAS FILTRADAS`;
-            document.getElementById('record-count-badge').textContent = `${sortedDates.length} días`;
+            document.getElementById('total-hours').textContent = secondsToClock(totalGlobalSeconds);
+            document.getElementById('record-count').textContent = `${sortedDays.length} JORNADAS LOCALIZADAS`;
+            document.getElementById('record-count-badge').textContent = `${sortedDays.length} días`;
             document.getElementById('export-pdf-btn').disabled = false;
         }
 

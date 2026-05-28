@@ -216,11 +216,15 @@
                 const segundosPuros = timeToSecondsInteger(horaLimpia);
                 if (segundosPuros === null) return;
 
+                const tipoAccion = String(f.Accion || f.Tipo || '').toLowerCase(); // Detecta Entrada/Salida
                 const turno = String(f.Turno || '').toLowerCase();
+                
+                const registroObj = { texto: horaLimpia, segundos: segundosPuros, accion: tipoAccion };
+
                 if (turno.includes('mañana') || turno.includes('manana')) {
-                    mapJornadas[dayISO].marcasMañana.push({ texto: horaLimpia, segundos: segundosPuros });
+                    mapJornadas[dayISO].marcasMañana.push(registroObj);
                 } else if (turno.includes('tarde')) {
-                    mapJornadas[dayISO].marcasTarde.push({ texto: horaLimpia, segundos: segundosPuros });
+                    mapJornadas[dayISO].marcasTarde.push(registroObj);
                 }
             });
 
@@ -236,43 +240,57 @@
                 return;
             }
 
-            // Forzamos el vaciado del acumulador en el arranque de la vista
             let acumuladorSegundosMensual = 0;
 
             listaDiasOrdenados.forEach(dayKey => {
                 const jornada = mapJornadas[dayKey];
-                
-                jornada.marcasMañana.sort((a, b) => a.segundos - b.segundos);
-                jornada.marcasTarde.sort((a, b) => a.segundos - b.segundos);
-
                 let segundosTrabajadosHoy = 0;
 
-                // --- MAÑANA ---
+                // --- PROCESAMIENTO ESTRÍCTO MAÑANA ---
                 let textoCeldaMañana = '-';
-                if (jornada.marcasMañana.length > 0) {
-                    const primero = jornada.marcasMañana[0];
-                    const ultimo = jornada.marcasMañana[jornada.marcasMañana.length - 1];
-                    
-                    if (jornada.marcasMañana.length >= 2) {
-                        textoCeldaMañana = `${primero.texto} - ${ultimo.texto}`;
-                        segundosTrabajadosHoy += (ultimo.segundos - primero.segundos);
-                    } else {
-                        textoCeldaMañana = `${primero.texto} - --:--:--`;
+                // Buscamos explícitamente los tipos correspondientes
+                const entradaM = jornada.marcasMañana.find(m => m.accion.includes('entr'));
+                const salidaM = jornada.marcasMañana.find(m => m.accion.includes('sal') || m.accion.includes('ext'));
+
+                if (entradaM && salidaM) {
+                    textoCeldaMañana = `${entradaM.texto} - ${salidaM.texto}`;
+                    if (salidaM.segundos > entradaM.segundos) {
+                        segundosTrabajadosHoy += (salidaM.segundos - entradaM.segundos);
                     }
+                } else if (entradaM) {
+                    textoCeldaMañana = `${entradaM.texto} - --:--:--`;
+                } else if (salidaM) {
+                    textoCeldaMañana = `--:--:-- - ${salidaM.texto}`;
+                } else if (jornada.marcasMañana.length >= 2) {
+                    // Fallback de seguridad por si la columna Accion viniera vacía
+                    jornada.marcasMañana.sort((a,b) => a.segundos - b.segundos);
+                    const p = jornada.marcasMañana[0];
+                    const u = jornada.marcasMañana[jornada.marcasMañana.length - 1];
+                    textoCeldaMañana = `${p.texto} - ${u.texto}`;
+                    segundosTrabajadosHoy += (u.segundos - p.segundos);
                 }
 
-                // --- TARDE ---
+                // --- PROCESAMIENTO ESTRÍCTO TARDE ---
                 let textoCeldaTarde = '-';
-                if (jornada.marcasTarde.length > 0) {
-                    const primero = jornada.marcasTarde[0];
-                    const ultimo = jornada.marcasTarde[jornada.marcasTarde.length - 1];
-                    
-                    if (jornada.marcasTarde.length >= 2) {
-                        textoCeldaTarde = `${primero.texto} - ${ultimo.texto}`;
-                        segundosTrabajadosHoy += (ultimo.segundos - primero.segundos);
-                    } else {
-                        textoCeldaTarde = `${primero.texto} - --:--:--`;
+                const entradaT = jornada.marcasTarde.find(m => m.accion.includes('entr'));
+                const salidaT = jornada.marcasTarde.find(m => m.accion.includes('sal') || m.accion.includes('ext'));
+
+                if (entradaT && salidaT) {
+                    textoCeldaTarde = `${entradaT.texto} - ${salidaT.texto}`;
+                    if (salidaT.segundos > entradaT.segundos) {
+                        segundosTrabajadosHoy += (salidaT.segundos - entradaT.segundos);
                     }
+                } else if (entradaT) {
+                    textoCeldaTarde = `${entradaT.texto} - --:--:--`;
+                } else if (salidaT) {
+                    textoCeldaTarde = `--:--:-- - ${salidaT.texto}`;
+                } else if (jornada.marcasTarde.length >= 2) {
+                    // Fallback de seguridad por si la columna Accion viniera vacía
+                    jornada.marcasTarde.sort((a,b) => a.segundos - b.segundos);
+                    const p = jornada.marcasTarde[0];
+                    const u = jornada.marcasTarde[jornada.marcasTarde.length - 1];
+                    textoCeldaTarde = `${p.texto} - ${u.texto}`;
+                    segundosTrabajadosHoy += (u.segundos - p.segundos);
                 }
 
                 acumuladorSegundosMensual += segundosTrabajadosHoy;

@@ -243,12 +243,17 @@
             return str.substring(0, 10);
         }
 
+        // Convierte un string "HH:MM:SS" a un número absoluto de segundos para ordenar matemáticamente
+        function timeToSeconds(timeStr) {
+            if (!timeStr) return 0;
+            const parts = timeStr.split(':').map(Number);
+            return (parts[0] * 3600) + (parts[1] * 60) + (parts[2] || 0);
+        }
+
         function calcSecondsFromTimes(startClock, endClock) {
             if (!startClock || !endClock || startClock === '--' || endClock === '--') return 0;
-            const sParts = startClock.split(':').map(Number);
-            const eParts = endClock.split(':').map(Number);
-            const startSecs = (sParts[0] * 3600) + (sParts[1] * 60) + (sParts[2] || 0);
-            const endSecs = (eParts[0] * 3600) + (eParts[1] * 60) + (eParts[2] || 0);
+            const startSecs = timeToSeconds(startClock);
+            const endSecs = timeToSeconds(endClock);
             return endSecs > startSecs ? (endSecs - startSecs) : 0;
         }
 
@@ -292,13 +297,9 @@
 
                 if (!daily[date]) {
                     daily[date] = {
-                        ids: [],
+                        firstId: f.ID_Fichaje || '--', // Nos quedamos estrictamente con el primero que venga
                         fichajes: []
                     };
-                }
-
-                if (f.ID_Fichaje && !daily[date].ids.includes(f.ID_Fichaje)) {
-                    daily[date].ids.push(f.ID_Fichaje);
                 }
 
                 const cleanTime = getCleanTime(f.Hora);
@@ -325,47 +326,48 @@
                 const dayData = daily[date];
                 let dayTotalSeconds = 0;
 
-                const morningTimes = dayData.fichajes.filter(f => f.turno === 'Mañana').map(f => f.time).sort();
-                const afternoonTimes = dayData.fichajes.filter(f => f.turno === 'Tarde').map(f => f.time).sort();
+                // ORDENACIÓN CRONOLÓGICA REAL: Ordenamos basándonos en el valor numérico de los segundos
+                const morningTimes = dayData.fichajes
+                    .filter(f => f.turno === 'Mañana')
+                    .map(f => f.time)
+                    .sort((a, b) => timeToSeconds(a) - timeToSeconds(b));
 
-                // Lógica de cálculo por parejas consecutivas reales (Mañana)
+                const afternoonTimes = dayData.fichajes
+                    .filter(f => f.turno === 'Tarde')
+                    .map(f => f.time)
+                    .sort((a, b) => timeToSeconds(a) - timeToSeconds(b));
+
+                // Formateo visual Mañana
                 let morningText = '-';
                 if (morningTimes.length > 0) {
                     const mEntrada = morningTimes[0];
                     const mSalida = morningTimes.length > 1 ? morningTimes[1] : '--';
                     morningText = `${mEntrada} - ${mSalida}`;
                     
-                    for(let i = 0; i < morningTimes.length; i += 2) {
-                        if(morningTimes[i] && morningTimes[i+1]) {
-                            dayTotalSeconds += calcSecondsFromTimes(morningTimes[i], morningTimes[i+1]);
-                        }
+                    if(morningTimes[0] && morningTimes[1]) {
+                        dayTotalSeconds += calcSecondsFromTimes(morningTimes[0], morningTimes[1]);
                     }
                 }
 
-                // Lógica de cálculo por parejas consecutivas reales (Tarde)
+                // Formateo visual Tarde
                 let afternoonText = '-';
                 if (afternoonTimes.length > 0) {
                     const tEntrada = afternoonTimes[0];
                     const tSalida = afternoonTimes.length > 1 ? afternoonTimes[1] : '--';
                     afternoonText = `${tEntrada} - ${tSalida}`;
                     
-                    for(let i = 0; i < afternoonTimes.length; i += 2) {
-                        if(afternoonTimes[i] && afternoonTimes[i+1]) {
-                            dayTotalSeconds += calcSecondsFromTimes(afternoonTimes[i], afternoonTimes[i+1]);
-                        }
+                    if(afternoonTimes[0] && afternoonTimes[1]) {
+                        dayTotalSeconds += calcSecondsFromTimes(afternoonTimes[0], afternoonTimes[1]);
                     }
                 }
 
                 globalTotalSeconds += dayTotalSeconds;
-
                 const visualDate = date.includes('-') ? date.split('-').reverse().join('/') : date;
-                // Dejamos un único ID limpio en pantalla
-                const displayId = dayData.ids.length > 0 ? dayData.ids[0] : '--';
 
                 tableBody.innerHTML += `
                     <tr>
                         <td class="font-bold text-servilang-dark">${visualDate}</td>
-                        <td class="text-[10px] text-slate-300 font-mono truncate max-w-[120px]" title="${dayData.ids.join(', ')}">${displayId}</td>
+                        <td class="text-[10px] text-slate-300 font-mono">${dayData.firstId}</td>
                         <td class="text-xs font-semibold text-slate-600">${morningText}</td>
                         <td class="text-xs font-semibold text-slate-600">${afternoonText}</td>
                         <td class="font-bold text-servilang-primary bg-slate-50/50">${formatSecondsToClock(dayTotalSeconds)}</td>

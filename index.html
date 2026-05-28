@@ -158,35 +158,52 @@
             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         }
 
-        // Calcula el tiempo neto emparejando estrictamente Entradas y Salidas consecutivas
+        // Sistema defensivo definitivo para emparejar marcas de tiempo
         function calculateNetSeconds(marksArray) {
-            // Ordenamos cronológicamente por segundos de día
+            if (marksArray.length < 2) return 0;
+            
+            // Forzar ordenación por hora real pase lo que pase
             marksArray.sort((a, b) => a.seconds - b.seconds);
             
             let totalSeconds = 0;
-            let currentEntrada = null;
+            let i = 0;
 
-            for (let i = 0; i < marksArray.length; i++) {
-                const mark = marksArray[i];
-                if (mark.type === 'entrada') {
-                    currentEntrada = mark.seconds;
-                } else if (mark.type === 'salida' && currentEntrada !== null) {
-                    totalSeconds += (mark.seconds - currentEntrada);
-                    currentEntrada = null; // Resetear para el siguiente bloque
+            while (i < marksArray.length) {
+                const current = marksArray[i];
+                
+                // Si está explícitamente marcado como entrada, buscamos la siguiente salida
+                if (current.type === 'entrada') {
+                    let j = i + 1;
+                    while (j < marksArray.length && marksArray[j].type !== 'salida') {
+                        j++;
+                    }
+                    if (j < marksArray.length) {
+                        totalSeconds += (marksArray[j].seconds - current.seconds);
+                        i = j + 1;
+                    } else {
+                        i++;
+                    }
+                } 
+                // Si la base de datos no tiene etiquetas claras, emparejamos secuencialmente por tiempo cronológico
+                else {
+                    if (i + 1 < marksArray.length) {
+                        totalSeconds += (marksArray[i+1].seconds - current.seconds);
+                        i += 2;
+                    } else {
+                        i++;
+                    }
                 }
             }
             return totalSeconds;
         }
 
         function formatTurnoString(marksArray) {
+            if (marksArray.length === 0) return "-";
             marksArray.sort((a, b) => a.seconds - b.seconds);
-            const entradas = marksArray.filter(m => m.type === 'entrada').map(m => m.timeStr);
-            const salidas = marksArray.filter(m => m.type === 'salida').map(m => m.timeStr);
             
-            if (entradas.length === 0 && salidas.length === 0) return "-";
-            
-            const pEntrada = entradas.length > 0 ? entradas[0] : "--:--:--";
-            const uSalida = salidas.length > 0 ? salidas[salidas.length - 1] : "--:--:--";
+            // La primera del día será la Entrada visual, la última la Salida visual
+            const pEntrada = marksArray[0].timeStr;
+            const uSalida = marksArray.length > 1 ? marksArray[marksArray.length - 1].timeStr : "--:--:--";
             return `${pEntrada} - ${uSalida}`;
         }
 
@@ -227,24 +244,30 @@
 
                 if (!groupedByDay[dayISO]) {
                     groupedByDay[dayISO] = {
-                        idReference: f.ID_Fichaje || '--',
+                        idReference: f.ID_Fichaje || f.ID || '--',
                         mañana: [],
                         tarde: []
                     };
                 }
 
                 const cleanTime = extractCleanTime(f.Hora);
-                const tipo = String(f.Estado || f.Tipo || '').trim().toLowerCase(); // Captura "Entrada" o "Salida"
+                
+                // Mapeo ultra-seguro: comprueba tanto "Estado" como "Tipo"
+                const estadoRaw = String(f.Estado || f.Tipo || '').toLowerCase();
+                let tipoMarca = 'desconocido';
+                if (estadoRaw.includes('ent')) tipoMarca = 'entrada';
+                if (estadoRaw.includes('sal')) tipoMarca = 'salida';
+
                 const turno = String(f.Turno || '').trim().toLowerCase();
 
                 if (cleanTime) {
                     const markData = {
                         timeStr: cleanTime,
                         seconds: clockToSeconds(cleanTime),
-                        type: tipo.includes('entrada') ? 'entrada' : 'salida'
+                        type: tipoMarca
                     };
                     
-                    if (turno.includes('mañana')) {
+                    if (turno.includes('mañana') || turno.includes('manana')) {
                         groupedByDay[dayISO].mañana.push(markData);
                     } else if (turno.includes('tarde')) {
                         groupedByDay[dayISO].tarde.push(markData);
@@ -269,14 +292,14 @@
             sortedDays.forEach(dayKey => {
                 const dayData = groupedByDay[dayKey];
                 
-                // Cálculo matemático exacto basado en parejas reales Entrada-Salida
+                // Cálculo de segundos netos con el nuevo algoritmo de ordenación forzada
                 const morningSeconds = calculateNetSeconds(dayData.mañana);
                 const afternoonSeconds = calculateNetSeconds(dayData.tarde);
 
                 const dayTotalSeconds = morningSeconds + afternoonSeconds;
                 totalGlobalSeconds += dayTotalSeconds; 
 
-                // Formateo visual de la interfaz
+                // Formateo visual estricto
                 const morningCellText = formatTurnoString(dayData.mañana);
                 const afternoonCellText = formatTurnoString(dayData.tarde);
                 const visualFormattedDate = dayKey.split('-').reverse().join('/');

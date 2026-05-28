@@ -150,15 +150,15 @@
         function clockToSeconds(clockStr) {
             if (!clockStr || !clockStr.includes(':')) return 0;
             const parts = clockStr.split(':').map(Number);
-            return ((parts[0] || 0) * 3600) + ((parts[1] || 0) * 60) + (parts[2] || 0);
+            return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
         }
 
         function secondsToClock(totalSecs) {
             if (totalSecs <= 0) return "00:00:00";
-            const h = Math.floor(totalSecs / 3600).toString().padStart(2, '0');
-            const m = Math.floor((totalSecs % 3600) / 60).toString().padStart(2, '0');
-            const s = Math.floor(totalSecs % 60).toString().padStart(2, '0');
-            return `${h}:${m}:${s}`;
+            const h = Math.floor(totalSecs / 3600);
+            const m = Math.floor((totalSecs % 3600) / 60);
+            const s = totalSecs % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         }
 
         document.getElementById('filter-btn').onclick = () => {
@@ -237,7 +237,6 @@
             sortedDays.forEach(dayKey => {
                 const dayData = groupedByDay[dayKey];
                 
-                // Ordenamos las marcas de cada turno para garantizar Entrada (menor) y Salida (mayor)
                 dayData.mañana.sort((a, b) => a.seconds - b.seconds);
                 dayData.tarde.sort((a, b) => a.seconds - b.seconds);
 
@@ -264,7 +263,7 @@
                 }
 
                 const dayTotalSeconds = morningSeconds + afternoonSeconds;
-                totalGlobalSeconds += dayTotalSeconds; // Acumulador robusto corregido
+                totalGlobalSeconds += dayTotalSeconds; 
 
                 const visualFormattedDate = dayKey.split('-').reverse().join('/');
 

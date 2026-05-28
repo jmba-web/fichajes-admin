@@ -233,16 +233,24 @@
                    d.getUTCSeconds().toString().padStart(2, '0');
         }
 
-        function calcHours(start, end) {
+        // Devuelve la diferencia total puramente en SEGUNDOS
+        function calcSecondsDiff(start, end) {
             if (!start || !end) return 0;
             const [sH, sM, sS] = start.split(':').map(val => Number(val) || 0);
             const [eH, eM, eS] = end.split(':').map(val => Number(val) || 0);
             
-            let startInSeconds = (sH * 3600) + (sM * 60) + sS;
-            let endInSeconds = (eH * 3600) + (eM * 60) + eS;
+            let startSeconds = (sH * 3600) + (sM * 60) + sS;
+            let endSeconds = (eH * 3600) + (eM * 60) + eS;
             
-            let diffInSeconds = endInSeconds - startInSeconds;
-            return diffInSeconds > 0 ? diffInSeconds / 3600 : 0;
+            return endSeconds > startSeconds ? (endSeconds - startSeconds) : 0;
+        }
+
+        // Formatea segundos totales a una cadena legible HH:MM:SS
+        function formatSecondsToClock(totalSeconds) {
+            const h = Math.floor(totalSeconds / 3600);
+            const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+            const s = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
+            return `${h}:${m}:${s}`;
         }
 
         document.getElementById('filter-btn').onclick = () => {
@@ -279,7 +287,7 @@
                 else daily[date].afternoon[f.Tipo_Fichaje] = time;
             });
 
-            let total = 0;
+            let globalTotalSeconds = 0;
             const tableBody = document.getElementById('fichajes-table-body');
             tableBody.innerHTML = '';
             const dates = Object.keys(daily).sort();
@@ -292,17 +300,11 @@
 
             dates.forEach(date => {
                 const d = daily[date];
-                const hM = calcHours(d.morning.Entrada, d.morning.Salida);
-                const hA = calcHours(d.afternoon.Entrada, d.afternoon.Salida);
-                const dayTotalDecimal = hM + hA;
-                total += dayTotalDecimal;
-
-                // Modificación: Convertir las horas decimales del día a formato hh:mm:ss real
-                const totalSecondsDay = Math.round(dayTotalDecimal * 3600);
-                const hDisplay = Math.floor(totalSecondsDay / 3600);
-                const mDisplay = Math.floor((totalSecondsDay % 3600) / 60).toString().padStart(2, '0');
-                const sDisplay = (totalSecondsDay % 60).toString().padStart(2, '0');
-                const formattedDayTime = `${hDisplay}:${mDisplay}:${sDisplay}`;
+                const secondsMorning = calcSecondsDiff(d.morning.Entrada, d.morning.Salida);
+                const secondsAfternoon = calcSecondsDiff(d.afternoon.Entrada, d.afternoon.Salida);
+                
+                const dayTotalSeconds = secondsMorning + secondsAfternoon;
+                globalTotalSeconds += dayTotalSeconds;
 
                 tableBody.innerHTML += `
                     <tr>
@@ -314,19 +316,13 @@
                         <td class="text-xs">
                             ${d.afternoon.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.afternoon.Entrada} - ${d.afternoon.Salida || '--'}</span>` : '-'}
                         </td>
-                        <td class="font-bold text-servilang-primary bg-slate-50/50">${formattedDayTime}</td>
+                        <td class="font-bold text-servilang-primary bg-slate-50/50">${formatSecondsToClock(dayTotalSeconds)}</td>
                     </tr>`;
             });
 
-            // Modificación: Convertir también el acumulado del recuadro global a formato hh:mm:ss real
-            const totalSecondsGlobal = Math.round(total * 3600);
-            const gH = Math.floor(totalSecondsGlobal / 3600);
-            const gM = Math.floor((totalSecondsGlobal % 3600) / 60).toString().padStart(2, '0');
-            const gS = Math.floor(totalSecondsGlobal % 60).toString().padStart(2, '0');
-
             document.getElementById('summary-user-name').textContent = state.name;
             document.getElementById('summary-user-dni').textContent = `DNI: ${state.dni}`;
-            document.getElementById('total-hours').textContent = `${gH}:${gM}:${gS}`;
+            document.getElementById('total-hours').textContent = formatSecondsToClock(globalTotalSeconds);
             document.getElementById('record-count').textContent = `${dates.length} REGISTROS ENCONTRADOS`;
             document.getElementById('record-count-badge').textContent = `${dates.length} registros`;
             document.getElementById('export-pdf-btn').disabled = false;
@@ -340,7 +336,6 @@
             btn.textContent = "Generando...";
             btn.disabled = true;
 
-            // Construir el HTML para el PDF con formato de reloj integrado en el total
             renderZone.innerHTML = `
                 <div style="padding: 40px; font-family: 'Montserrat', sans-serif; background: white; color: #1e293b;">
                     <div style="display: flex; justify-content: space-between; border-bottom: 3px solid #002855; padding-bottom: 20px; margin-bottom: 30px; align-items: center;">
@@ -414,9 +409,7 @@
             `;
 
             try {
-                // Pequeña pausa para asegurar que el navegador procese el render antes de capturarlo
                 await new Promise(r => setTimeout(r, 500));
-                
                 const canvas = await html2canvas(renderZone, { 
                     useCORS: true, 
                     scale: 2,
@@ -442,7 +435,6 @@
             }
         };
 
-        // Iniciar carga de datos
         init();
     </script>
 </body>

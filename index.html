@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Control - Servilang</title>
-    <!-- Librerías para PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -94,10 +93,8 @@
 </head>
 <body class="min-h-screen p-4 md:p-8">
     <div class="max-w-7xl mx-auto">
-        <!-- Header Corporativo -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 border-b border-slate-200 pb-6">
             <div class="flex items-center gap-6">
-                <!-- Intento de cargar logo real con fallback de texto -->
                 <div id="logo-container">
                     <img src="https://www.servilang.es/wp-content/uploads/2021/01/logo-servilang.png" 
                          alt="Servilang Logo" 
@@ -117,7 +114,6 @@
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <!-- Columna Filtros -->
             <div class="lg:col-span-1 space-y-6">
                 <div class="card-corporate p-6">
                     <h3 class="text-sm font-bold text-servilang-dark mb-6 border-b pb-2 uppercase text-center">Configuración</h3>
@@ -142,7 +138,6 @@
                     </div>
                 </div>
 
-                <!-- Resumen Compacto Recuadro Pequeño -->
                 <div id="summary-panel" class="bg-servilang-dark p-4 rounded-lg text-white shadow-lg">
                     <div class="flex justify-between items-center mb-1">
                         <p class="text-[9px] font-bold text-servilang-accent uppercase tracking-tighter">Total Horas</p>
@@ -159,7 +154,6 @@
                 </div>
             </div>
 
-            <!-- Columna Tabla -->
             <div class="lg:col-span-3">
                 <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                     <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
@@ -189,7 +183,6 @@
         </div>
     </div>
 
-    <!-- Render PDF Zone -->
     <div id="pdf-render-zone"></div>
 
     <script type="module">
@@ -236,15 +229,21 @@
         function getCleanTime(iso) {
             if (!iso) return null;
             const d = new Date(new Date(iso).getTime() + TIME_OFFSET_MS);
-            return d.getUTCHours().toString().padStart(2, '0') + ":" + d.getUTCMinutes().toString().padStart(2, '0');
+            return d.getUTCHours().toString().padStart(2, '0') + ":" + 
+                   d.getUTCMinutes().toString().padStart(2, '0') + ":" + 
+                   d.getUTCSeconds().toString().padStart(2, '0');
         }
 
         function calcHours(start, end) {
             if (!start || !end) return 0;
-            const [sH, sM] = start.split(':').map(Number);
-            const [eH, eM] = end.split(':').map(Number);
-            let diff = (eH * 60 + eM) - (sH * 60 + sM);
-            return diff > 0 ? diff / 60 : 0;
+            const [sH, sM, sS] = start.split(':').map(val => Number(val) || 0);
+            const [eH, eM, eS] = end.split(':').map(val => Number(val) || 0);
+            
+            let startInSeconds = (sH * 3600) + (sM * 60) + sS;
+            let endInSeconds = (eH * 3600) + (eM * 60) + eS;
+            
+            let diffInSeconds = endInSeconds - startInSeconds;
+            return diffInSeconds > 0 ? diffInSeconds / 3600 : 0;
         }
 
         document.getElementById('filter-btn').onclick = () => {

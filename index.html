@@ -286,7 +286,7 @@
         function render(data) {
             const daily = {};
 
-            // Agrupamos de forma simple por fecha, turno y tipo de fichaje
+            // Agrupamos en crudo todas las marcas por fecha
             data.forEach(f => {
                 const date = getCleanDate(f.Fecha);
                 if (!date) return;
@@ -294,8 +294,7 @@
                 if (!daily[date]) {
                     daily[date] = {
                         ids: [],
-                        Mañana: { Entrada: [], Salida: [] },
-                        Tarde: { Entrada: [], Salida: [] }
+                        fichajes: []
                     };
                 }
 
@@ -304,8 +303,12 @@
                 }
 
                 const cleanTime = getCleanTime(f.Hora);
-                if (cleanTime && (f.Turno === 'Mañana' || f.Turno === 'Tarde')) {
-                    daily[date][f.Turno][f.Tipo_Fichaje].push(cleanTime);
+                if (cleanTime) {
+                    daily[date].fichajes.push({
+                        time: cleanTime,
+                        type: f.Tipo_Fichaje,
+                        turno: f.Turno
+                    });
                 }
             });
 
@@ -324,26 +327,30 @@
                 const dayData = daily[date];
                 let dayTotalSeconds = 0;
 
-                // Procesamos Turno Mañana (Ordenamos para asegurar que cogemos la menor Entrada y la mayor Salida)
-                dayData.Mañana.Entrada.sort();
-                dayData.Mañana.Salida.sort();
-                const mEntrada = dayData.Mañana.Entrada[0] || '--';
-                const mSalida = dayData.Mañana.Salida[dayData.Mañana.Salida.length - 1] || '--';
+                // Separamos y ordenamos cronológicamente de forma estricta las marcas de cada turno
+                const morningTimes = dayData.fichajes.filter(f => f.turno === 'Mañana').map(f => f.time).sort();
+                const afternoonTimes = dayData.fichajes.filter(f => f.turno === 'Tarde').map(f => f.time).sort();
+
+                // Emparejamos Mañana (Primera marca como Entrada, última como Salida)
                 let morningText = '-';
-                if (mEntrada !== '--' || mSalida !== '--') {
+                if (morningTimes.length > 0) {
+                    const mEntrada = morningTimes[0];
+                    const mSalida = morningTimes.length > 1 ? morningTimes[morningTimes.length - 1] : '--';
                     morningText = `${mEntrada} - ${mSalida}`;
-                    dayTotalSeconds += calcSecondsFromTimes(mEntrada, mSalida);
+                    if (mSalida !== '--') {
+                        dayTotalSeconds += calcSecondsFromTimes(mEntrada, mSalida);
+                    }
                 }
 
-                // Procesamos Turno Tarde
-                dayData.Tarde.Entrada.sort();
-                dayData.Tarde.Salida.sort();
-                const tEntrada = dayData.Tarde.Entrada[0] || '--';
-                const tSalida = dayData.Tarde.Salida[dayData.Tarde.Salida.length - 1] || '--';
+                // Emparejamos Tarde (Primera marca como Entrada, última como Salida)
                 let afternoonText = '-';
-                if (tEntrada !== '--' || tSalida !== '--') {
+                if (afternoonTimes.length > 0) {
+                    const tEntrada = afternoonTimes[0];
+                    const tSalida = afternoonTimes.length > 1 ? afternoonTimes[afternoonTimes.length - 1] : '--';
                     afternoonText = `${tEntrada} - ${tSalida}`;
-                    dayTotalSeconds += calcSecondsFromTimes(tEntrada, tSalida);
+                    if (tSalida !== '--') {
+                        dayTotalSeconds += calcSecondsFromTimes(tEntrada, tSalida);
+                    }
                 }
 
                 globalTotalSeconds += dayTotalSeconds;

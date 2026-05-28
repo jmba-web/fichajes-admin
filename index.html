@@ -144,18 +144,18 @@
             return text.substring(0, 8);
         }
 
-        function clockToSeconds(clockStr) {
-            if (!clockStr || !clockStr.includes(':')) return 0;
-            const parts = clockStr.split(':').map(Number);
-            return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+        function parseTimeToMs(timeStr, dateStr) {
+            if (!timeStr || !timeStr.includes(':')) return null;
+            return new Date(`${dateStr}T${timeStr}`).getTime();
         }
 
-        function secondsToClock(totalSecs) {
-            if (totalSecs <= 0) return "00:00:00";
-            const h = Math.floor(totalSecs / 3600);
-            const m = Math.floor((totalSecs % 3600) / 60);
-            const s = totalSecs % 60;
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        function formatMsToClock(durationMs) {
+            if (durationMs <= 0) return "00:00:00";
+            const totalSeconds = Math.floor(durationMs / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         }
 
         document.getElementById('filter-btn').onclick = () => {
@@ -203,21 +203,12 @@
 
                 const cleanTime = extractCleanTime(f.Hora);
                 const turno = String(f.Turno || '').toLowerCase();
-                const estado = String(f.Estado || f.Tipo || '').toLowerCase();
 
                 if (cleanTime) {
-                    const secondsValue = clockToSeconds(cleanTime);
-                    const item = { 
-                        timeStr: cleanTime, 
-                        secs: secondsValue,
-                        isEntrada: estado.includes('ent'),
-                        isSalida: estado.includes('sal')
-                    };
-
                     if (turno.includes('mañana') || turno.includes('manana')) {
-                        groupedByDay[dayISO].mañana.push(item);
+                        groupedByDay[dayISO].mañana.push(cleanTime);
                     } else if (turno.includes('tarde')) {
-                        groupedByDay[dayISO].tarde.push(item);
+                        groupedByDay[dayISO].tarde.push(cleanTime);
                     }
                 }
             });
@@ -234,44 +225,50 @@
                 return;
             }
 
-            let totalGlobalSeconds = 0;
+            let totalAccumulatedMs = 0;
 
             sortedDays.forEach(dayKey => {
                 const dayData = groupedByDay[dayKey];
                 
-                // Ordenar cronológicamente de forma estricta
-                dayData.mañana.sort((a, b) => a.secs - b.secs);
-                dayData.tarde.sort((a, b) => a.secs - b.secs);
+                // Ordenar alfabéticamente/cronológicamente las cadenas de texto HH:MM:SS
+                dayData.mañana.sort();
+                dayData.tarde.sort();
 
-                // --- PROCESAR MAÑANA ---
-                let morningSeconds = 0;
+                let dayMs = 0;
+
+                // --- CALCULAR TURNO MAÑANA ---
                 let morningCellText = '-';
                 if (dayData.mañana.length > 0) {
-                    const entradaM = dayData.mañana.find(m => m.isEntrada) || dayData.mañana[0];
-                    const salidaM = dayData.mañana.find(m => m.isSalida) || (dayData.mañana.length > 1 ? dayData.mañana[dayData.mañana.length - 1] : null);
+                    const startStr = dayData.mañana[0];
+                    const endStr = dayData.mañana.length > 1 ? dayData.mañana[dayData.mañana.length - 1] : null;
+                    morningCellText = `${startStr} - ${endStr || '--:--:--'}`;
                     
-                    morningCellText = `${entradaM.timeStr} - ${salidaM ? salidaM.timeStr : '--:--:--'}`;
-                    if (salidaM) {
-                        morningSeconds = Math.max(0, salidaM.secs - entradaM.secs);
+                    if (endStr) {
+                        const startMs = parseTimeToMs(startStr, dayKey);
+                        const endMs = parseTimeToMs(endStr, dayKey);
+                        if (startMs && endMs && endMs > startMs) {
+                            dayMs += (endMs - startMs);
+                        }
                     }
                 }
 
-                // --- PROCESAR TARDE ---
-                let afternoonSeconds = 0;
+                // --- CALCULAR TURNO TARDE ---
                 let afternoonCellText = '-';
                 if (dayData.tarde.length > 0) {
-                    const entradaT = dayData.tarde.find(t => t.isEntrada) || dayData.tarde[0];
-                    const salidaT = dayData.tarde.find(t => t.isSalida) || (dayData.tarde.length > 1 ? dayData.tarde[dayData.tarde.length - 1] : null);
+                    const startStr = dayData.tarde[0];
+                    const endStr = dayData.tarde.length > 1 ? dayData.tarde[dayData.tarde.length - 1] : null;
+                    afternoonCellText = `${startStr} - ${endStr || '--:--:--'}`;
                     
-                    afternoonCellText = `${entradaT.timeStr} - ${salidaT ? salidaT.timeStr : '--:--:--'}`;
-                    if (salidaT) {
-                        afternoonSeconds = Math.max(0, salidaT.secs - entradaT.secs);
+                    if (endStr) {
+                        const startMs = parseTimeToMs(startStr, dayKey);
+                        const endMs = parseTimeToMs(endStr, dayKey);
+                        if (startMs && endMs && endMs > startMs) {
+                            dayMs += (endMs - startMs);
+                        }
                     }
                 }
 
-                const dayTotalSeconds = morningSeconds + afternoonSeconds;
-                totalGlobalSeconds += dayTotalSeconds;
-
+                totalAccumulatedMs += dayMs;
                 const visualFormattedDate = dayKey.split('-').reverse().join('/');
 
                 body.innerHTML += `
@@ -280,13 +277,13 @@
                         <td class="text-[10px] text-slate-400 font-mono">${dayData.idReference}</td>
                         <td class="text-xs font-semibold text-slate-600">${morningCellText}</td>
                         <td class="text-xs font-semibold text-slate-600">${afternoonCellText}</td>
-                        <td class="font-bold text-blue-700 bg-slate-50">${secondsToClock(dayTotalSeconds)}</td>
+                        <td class="font-bold text-blue-700 bg-slate-50">${formatMsToClock(dayMs)}</td>
                     </tr>`;
             });
 
             document.getElementById('summary-user-name').textContent = state.name;
             document.getElementById('summary-user-dni').textContent = `DNI: ${state.dni}`;
-            document.getElementById('total-hours').textContent = secondsToClock(totalGlobalSeconds);
+            document.getElementById('total-hours').textContent = formatMsToClock(totalAccumulatedMs);
             document.getElementById('record-count').textContent = `${sortedDays.length} JORNADAS REGISTRADAS`;
             document.getElementById('record-count-badge').textContent = `${sortedDays.length} días`;
             document.getElementById('export-pdf-btn').disabled = false;

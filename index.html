@@ -232,15 +232,16 @@
                    d.getUTCSeconds().toString().padStart(2, '0');
         }
 
-        // Convierte el texto "HH:MM:SS" de Duracion_Trabajo de AppSheet directamente a segundos
-        function durationToSeconds(durationStr) {
-            if (!durationStr || typeof durationStr !== 'string') return 0;
-            const parts = durationStr.split(':');
-            if (parts.length !== 3) return 0;
-            const hrs = parseInt(parts[0], 10) || 0;
-            const mins = parseInt(parts[1], 10) || 0;
-            const secs = parseInt(parts[2], 10) || 0;
-            return (hrs * 3600) + (mins * 60) + secs;
+        // Calcula matemáticamente la diferencia real en segundos entre Entrada y Salida
+        function calcSecondsFromTimes(startClock, endClock) {
+            if (!startClock || !endClock) return 0;
+            const [sH, sM, sS] = startClock.split(':').map(Number);
+            const [eH, eM, eS] = endClock.split(':').map(Number);
+            
+            const startSecs = (sH * 3600) + (sM * 60) + sS;
+            const endSecs = (eH * 3600) + (eM * 60) + eS;
+            
+            return endSecs > startSecs ? (endSecs - startSecs) : 0;
         }
 
         function formatSecondsToClock(totalSeconds) {
@@ -278,18 +279,14 @@
             const daily = {};
             data.forEach(f => {
                 const date = f.Fecha.split('T')[0];
-                if (!daily[date]) daily[date] = { morning: {}, afternoon: {}, id: f.ID_Fichaje, secondsMorning: 0, secondsAfternoon: 0 };
+                if (!daily[date]) daily[date] = { morning: {Entrada: null, Salida: null}, afternoon: {Entrada: null, Salida: null}, id: f.ID_Fichaje };
                 const time = getCleanTime(f.Hora);
                 
-                // Si es un registro de salida, guardamos la duración acumulada del turno calculada por AppSheet
-                if (f.Tipo_Fichaje === 'Salida') {
-                    const secs = durationToSeconds(f.Duracion_Trabajo);
-                    if (f.Turno === 'Mañana') daily[date].secondsMorning = secs;
-                    else daily[date].secondsAfternoon = secs;
+                if (f.Turno === 'Mañana') {
+                    daily[date].morning[f.Tipo_Fichaje] = time;
+                } else {
+                    daily[date].afternoon[f.Tipo_Fichaje] = time;
                 }
-
-                if (f.Turno === 'Mañana') daily[date].morning[f.Tipo_Fichaje] = time;
-                else daily[date].afternoon[f.Tipo_Fichaje] = time;
             });
 
             let globalTotalSeconds = 0;
@@ -305,7 +302,12 @@
 
             dates.forEach(date => {
                 const d = daily[date];
-                const dayTotalSeconds = d.secondsMorning + d.secondsAfternoon;
+                
+                // Cálculo de segundos exacto por turnos autónomos
+                const secsMorning = calcSecondsFromTimes(d.morning.Entrada, d.morning.Salida);
+                const secsAfternoon = calcSecondsFromTimes(d.afternoon.Entrada, d.afternoon.Salida);
+                
+                const dayTotalSeconds = secsMorning + secsAfternoon;
                 globalTotalSeconds += dayTotalSeconds;
 
                 tableBody.innerHTML += `
@@ -313,10 +315,10 @@
                         <td class="font-bold text-servilang-dark">${date.split('-').reverse().join('/')}</td>
                         <td class="text-[10px] text-slate-300 font-mono">${d.id}</td>
                         <td class="text-xs">
-                            ${d.morning.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.morning.Entrada.substring(0,5)} - ${d.morning.Salida ? d.morning.Salida.substring(0,5) : '--'}</span>` : '-'}
+                            ${d.morning.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.morning.Entrada} - ${d.morning.Salida || '--'}</span>` : '-'}
                         </td>
                         <td class="text-xs">
-                            ${d.afternoon.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.afternoon.Entrada.substring(0,5)} - ${d.afternoon.Salida ? d.afternoon.Salida.substring(0,5) : '--'}</span>` : '-'}
+                            ${d.afternoon.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.afternoon.Entrada} - ${d.afternoon.Salida || '--'}</span>` : '-'}
                         </td>
                         <td class="font-bold text-servilang-primary bg-slate-50/50">${formatSecondsToClock(dayTotalSeconds)}</td>
                     </tr>`;

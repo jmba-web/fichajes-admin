@@ -120,7 +120,7 @@
                     userSelect.appendChild(opt);
                 });
             } catch (e) {
-                console.error("Error inicial:", e);
+                console.error("Error al iniciar aplicación:", e);
                 document.getElementById('user-select').innerHTML = '<option value="">Error de conexión</option>';
             }
         }
@@ -144,17 +144,28 @@
             return text.substring(0, 8);
         }
 
-        function parseTimeToMs(timeStr, dateStr) {
+        // Convierte "HH:MM:SS" de forma estricta a un número entero de segundos
+        function timeToSecondsInteger(timeStr) {
             if (!timeStr || !timeStr.includes(':')) return null;
-            return new Date(`${dateStr}T${timeStr}`).getTime();
+            const parts = timeStr.split(':');
+            if (parts.length < 3) return null;
+            
+            const hours = parseInt(parts[0], 10) || 0;
+            const minutes = parseInt(parts[1], 10) || 0;
+            const seconds = parseInt(parts[2], 10) || 0;
+            
+            return (hours * 3600) + (minutes * 60) + seconds;
         }
 
-        function formatMsToClock(durationMs) {
-            if (durationMs <= 0) return "00:00:00";
-            const totalSeconds = Math.floor(durationMs / 1000);
+        // Convierte segundos enteros de vuelta a formato legible de reloj
+        function secondsIntegerToClock(totalSeconds) {
+            if (!totalSeconds || totalSeconds <= 0) return "00:00:00";
+            
             const hours = Math.floor(totalSeconds / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
+            const remainingSeconds = totalSeconds % 3600;
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            
             return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         }
 
@@ -165,7 +176,7 @@
             const endStr = document.getElementById('end-date').value;
 
             if (!email || !startStr || !endStr) {
-                alert("Completa todos los campos");
+                alert("Por favor, rellene todos los filtros.");
                 return;
             }
 
@@ -187,105 +198,108 @@
         };
 
         function renderDashboard(fichajesFiltrados) {
-            const groupedByDay = {};
+            const mapJornadas = {};
 
+            // 1. Organizar datos crudos en contenedores limpios por día
             fichajesFiltrados.forEach(f => {
                 const dayISO = cleanDateString(f.Fecha);
                 if (!dayISO) return;
 
-                if (!groupedByDay[dayISO]) {
-                    groupedByDay[dayISO] = {
-                        idReference: f.ID_Fichaje || f.ID || '--',
-                        mañana: [],
-                        tarde: []
+                if (!mapJornadas[dayISO]) {
+                    mapJornadas[dayISO] = {
+                        idFichaje: f.ID_Fichaje || f.ID || '--',
+                        marcasMañana: [],
+                        marcasTarde: []
                     };
                 }
 
-                const cleanTime = extractCleanTime(f.Hora);
-                const turno = String(f.Turno || '').toLowerCase();
+                const horaLimpia = extractCleanTime(f.Hora);
+                if (!horaLimpia || horaLimpia === '--:--:--') return;
 
-                if (cleanTime) {
-                    if (turno.includes('mañana') || turno.includes('manana')) {
-                        groupedByDay[dayISO].mañana.push(cleanTime);
-                    } else if (turno.includes('tarde')) {
-                        groupedByDay[dayISO].tarde.push(cleanTime);
-                    }
+                const segundosPuros = timeToSecondsInteger(horaLimpia);
+                if (segundosPuros === null) return;
+
+                const turno = String(f.Turno || '').toLowerCase();
+                if (turno.includes('mañana') || turno.includes('manana')) {
+                    mapJornadas[dayISO].marcasMañana.push({ texto: horaLimpia, segundos: segundosPuros });
+                } else if (turno.includes('tarde')) {
+                    mapJornadas[dayISO].marcasTarde.push({ texto: horaLimpia, segundos: segundosPuros });
                 }
             });
 
             const body = document.getElementById('fichajes-table-body');
             body.innerHTML = '';
 
-            const sortedDays = Object.keys(groupedByDay).sort();
+            const listaDiasOrdenados = Object.keys(mapJornadas).sort();
 
-            if (sortedDays.length === 0) {
-                body.innerHTML = '<tr><td colspan="5" class="py-20 text-slate-400">No hay registros coincidentes.</td></tr>';
+            if (listaDiasOrdenados.length === 0) {
+                body.innerHTML = '<tr><td colspan="5" class="py-20 text-slate-400">No se encontraron registros en estas fechas.</td></tr>';
                 document.getElementById('total-hours').textContent = "00:00:00";
                 document.getElementById('export-pdf-btn').disabled = true;
                 return;
             }
 
-            let totalAccumulatedMs = 0;
+            let acumuladorSegundosMensual = 0;
 
-            sortedDays.forEach(dayKey => {
-                const dayData = groupedByDay[dayKey];
+            // 2. Procesar matemáticamente cada día de forma aislada
+            listaDiasOrdenados.forEach(dayKey => {
+                const jornada = mapJornadas[dayKey];
                 
-                // Ordenar alfabéticamente/cronológicamente las cadenas de texto HH:MM:SS
-                dayData.mañana.sort();
-                dayData.tarde.sort();
+                // Asegurar ordenación cronológica estricta en base a segundos
+                jornada.marcasMañana.sort((a, b) => a.segundos - b.segundos);
+                jornada.marcasTarde.sort((a, b) => a.segundos - b.segundos);
 
-                let dayMs = 0;
+                let segundosTrabajadosHoy = 0;
 
-                // --- CALCULAR TURNO MAÑANA ---
-                let morningCellText = '-';
-                if (dayData.mañana.length > 0) {
-                    const startStr = dayData.mañana[0];
-                    const endStr = dayData.mañana.length > 1 ? dayData.mañana[dayData.mañana.length - 1] : null;
-                    morningCellText = `${startStr} - ${endStr || '--:--:--'}`;
+                // --- CALCULO MAÑAÑA ---
+                let textoCeldaMañana = '-';
+                if (jornada.marcasMañana.length > 0) {
+                    const primero = jornada.marcasMañana[0];
+                    const ultimo = jornada.marcasMañana[jornada.marcasMañana.length - 1];
                     
-                    if (endStr) {
-                        const startMs = parseTimeToMs(startStr, dayKey);
-                        const endMs = parseTimeToMs(endStr, dayKey);
-                        if (startMs && endMs && endMs > startMs) {
-                            dayMs += (endMs - startMs);
-                        }
+                    if (jornada.marcasMañana.length >= 2) {
+                        textoCeldaMañana = `${primero.texto} - ${ultimo.texto}`;
+                        segundosTrabajadosHoy += (ultimo.segundos - primero.segundos);
+                    } else {
+                        textoCeldaMañana = `${primero.texto} - --:--:--`;
                     }
                 }
 
-                // --- CALCULAR TURNO TARDE ---
-                let afternoonCellText = '-';
-                if (dayData.tarde.length > 0) {
-                    const startStr = dayData.tarde[0];
-                    const endStr = dayData.tarde.length > 1 ? dayData.tarde[dayData.tarde.length - 1] : null;
-                    afternoonCellText = `${startStr} - ${endStr || '--:--:--'}`;
+                // --- CALCULO TARDE ---
+                let textoCeldaTarde = '-';
+                if (jornada.marcasTarde.length > 0) {
+                    const primero = jornada.marcasTarde[0];
+                    const ultimo = jornada.marcasTarde[jornada.marcasTarde.length - 1];
                     
-                    if (endStr) {
-                        const startMs = parseTimeToMs(startStr, dayKey);
-                        const endMs = parseTimeToMs(endStr, dayKey);
-                        if (startMs && endMs && endMs > startMs) {
-                            dayMs += (endMs - startMs);
-                        }
+                    if (jornada.marcasTarde.length >= 2) {
+                        textoCeldaTarde = `${primero.texto} - ${ultimo.texto}`;
+                        segundosTrabajadosHoy += (ultimo.segundos - primero.segundos);
+                    } else {
+                        textoCeldaTarde = `${primero.texto} - --:--:--`;
                     }
                 }
 
-                totalAccumulatedMs += dayMs;
-                const visualFormattedDate = dayKey.split('-').reverse().join('/');
+                // Acumulamos los segundos netos calculados para la fila actual
+                acumuladorSegundosMensual += segundosTrabajadosHoy;
+
+                const fechaVisual = dayKey.split('-').reverse().join('/');
 
                 body.innerHTML += `
                     <tr>
-                        <td class="font-brand font-bold text-slate-800">${visualFormattedDate}</td>
-                        <td class="text-[10px] text-slate-400 font-mono">${dayData.idReference}</td>
-                        <td class="text-xs font-semibold text-slate-600">${morningCellText}</td>
-                        <td class="text-xs font-semibold text-slate-600">${afternoonCellText}</td>
-                        <td class="font-bold text-blue-700 bg-slate-50">${formatMsToClock(dayMs)}</td>
+                        <td class="font-brand font-bold text-slate-800">${fechaVisual}</td>
+                        <td class="text-[10px] text-slate-400 font-mono">${jornada.idFichaje}</td>
+                        <td class="text-xs font-semibold text-slate-600">${textoCeldaMañana}</td>
+                        <td class="text-xs font-semibold text-slate-600">${textoCeldaTarde}</td>
+                        <td class="font-bold text-blue-700 bg-slate-50">${secondsIntegerToClock(segundosTrabajadosHoy)}</td>
                     </tr>`;
             });
 
+            // 3. Pintar totales globales consolidados
             document.getElementById('summary-user-name').textContent = state.name;
             document.getElementById('summary-user-dni').textContent = `DNI: ${state.dni}`;
-            document.getElementById('total-hours').textContent = formatMsToClock(totalAccumulatedMs);
-            document.getElementById('record-count').textContent = `${sortedDays.length} JORNADAS REGISTRADAS`;
-            document.getElementById('record-count-badge').textContent = `${sortedDays.length} días`;
+            document.getElementById('total-hours').textContent = secondsIntegerToClock(acumuladorSegundosMensual);
+            document.getElementById('record-count').textContent = `${listaDiasOrdenados.length} JORNADAS REGISTRADAS`;
+            document.getElementById('record-count-badge').textContent = `${listaDiasOrdenados.length} días`;
             document.getElementById('export-pdf-btn').disabled = false;
         }
 

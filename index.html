@@ -223,7 +223,7 @@
             }
         }
 
-        // Limpia las horas enviadas en texto plano (ej: "13:04:22")
+        // Obtiene la hora limpia que manda el script ("HH:MM:SS") sin parches artificiales
         function getCleanTime(timeString) {
             if (!timeString) return null;
             let str = String(timeString).trim();
@@ -233,7 +233,7 @@
             return str.substring(0, 8);
         }
 
-        // CORRECCIÓN CLAVE: Pasa cualquier fecha literal de tipo "26/05/2026" a "2026-05-26" para poder compararla matemáticamente
+        // Normaliza las fechas del Excel para poder filtrarlas de forma correcta
         function getCleanDate(dateString) {
             if (!dateString) return '';
             let str = String(dateString).trim();
@@ -242,7 +242,6 @@
                 str = str.split('T')[0];
             }
             
-            // Si viene con formato europeo con barras (ej: "26/05/2026")
             if (str.includes('/')) {
                 const parts = str.split('/');
                 if(parts[2] && parts[2].length === 4) {
@@ -252,18 +251,21 @@
             return str.substring(0, 10);
         }
 
+        // NUEVA FUNCIÓN: Calcula la diferencia matemática exacta en segundos totales
         function calcSecondsFromTimes(startClock, endClock) {
             if (!startClock || !endClock || startClock === '--' || endClock === '--') return 0;
             
             const sParts = startClock.split(':').map(Number);
             const eParts = endClock.split(':').map(Number);
             
+            // Pasamos todo a segundos puros
             const startSecs = (sParts[0] * 3600) + (sParts[1] * 60) + (sParts[2] || 0);
             const endSecs = (eParts[0] * 3600) + (eParts[1] * 60) + (eParts[2] || 0);
             
             return endSecs > startSecs ? (endSecs - startSecs) : 0;
         }
 
+        // NUEVA FUNCIÓN: Transforma segundos puros a formato reloj legible "HH:MM:SS"
         function formatSecondsToClock(totalSeconds) {
             const h = Math.floor(totalSeconds / 3600);
             const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
@@ -325,6 +327,7 @@
             dates.forEach(date => {
                 const d = daily[date];
                 
+                // Calculamos los segundos exactos por cada tramo de la jornada
                 const secsMorning = calcSecondsFromTimes(d.morning.Entrada, d.morning.Salida);
                 const secsAfternoon = calcSecondsFromTimes(d.afternoon.Entrada, d.afternoon.Salida);
                 

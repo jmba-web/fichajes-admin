@@ -80,7 +80,6 @@
             object-fit: contain;
         }
 
-        /* Estilo para cuando falla el logo */
         .logo-placeholder {
             background: #002855;
             color: white;
@@ -233,19 +232,17 @@
                    d.getUTCSeconds().toString().padStart(2, '0');
         }
 
-        // Devuelve la diferencia total puramente en SEGUNDOS
-        function calcSecondsDiff(start, end) {
-            if (!start || !end) return 0;
-            const [sH, sM, sS] = start.split(':').map(val => Number(val) || 0);
-            const [eH, eM, eS] = end.split(':').map(val => Number(val) || 0);
-            
-            let startSeconds = (sH * 3600) + (sM * 60) + sS;
-            let endSeconds = (eH * 3600) + (eM * 60) + eS;
-            
-            return endSeconds > startSeconds ? (endSeconds - startSeconds) : 0;
+        // Convierte el texto "HH:MM:SS" de Duracion_Trabajo de AppSheet directamente a segundos
+        function durationToSeconds(durationStr) {
+            if (!durationStr || typeof durationStr !== 'string') return 0;
+            const parts = durationStr.split(':');
+            if (parts.length !== 3) return 0;
+            const hrs = parseInt(parts[0], 10) || 0;
+            const mins = parseInt(parts[1], 10) || 0;
+            const secs = parseInt(parts[2], 10) || 0;
+            return (hrs * 3600) + (mins * 60) + secs;
         }
 
-        // Formatea segundos totales a una cadena legible HH:MM:SS
         function formatSecondsToClock(totalSeconds) {
             const h = Math.floor(totalSeconds / 3600);
             const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
@@ -281,8 +278,16 @@
             const daily = {};
             data.forEach(f => {
                 const date = f.Fecha.split('T')[0];
-                if (!daily[date]) daily[date] = { morning: {}, afternoon: {}, id: f.ID_Fichaje };
+                if (!daily[date]) daily[date] = { morning: {}, afternoon: {}, id: f.ID_Fichaje, secondsMorning: 0, secondsAfternoon: 0 };
                 const time = getCleanTime(f.Hora);
+                
+                // Si es un registro de salida, guardamos la duración acumulada del turno calculada por AppSheet
+                if (f.Tipo_Fichaje === 'Salida') {
+                    const secs = durationToSeconds(f.Duracion_Trabajo);
+                    if (f.Turno === 'Mañana') daily[date].secondsMorning = secs;
+                    else daily[date].secondsAfternoon = secs;
+                }
+
                 if (f.Turno === 'Mañana') daily[date].morning[f.Tipo_Fichaje] = time;
                 else daily[date].afternoon[f.Tipo_Fichaje] = time;
             });
@@ -300,10 +305,7 @@
 
             dates.forEach(date => {
                 const d = daily[date];
-                const secondsMorning = calcSecondsDiff(d.morning.Entrada, d.morning.Salida);
-                const secondsAfternoon = calcSecondsDiff(d.afternoon.Entrada, d.afternoon.Salida);
-                
-                const dayTotalSeconds = secondsMorning + secondsAfternoon;
+                const dayTotalSeconds = d.secondsMorning + d.secondsAfternoon;
                 globalTotalSeconds += dayTotalSeconds;
 
                 tableBody.innerHTML += `
@@ -311,10 +313,10 @@
                         <td class="font-bold text-servilang-dark">${date.split('-').reverse().join('/')}</td>
                         <td class="text-[10px] text-slate-300 font-mono">${d.id}</td>
                         <td class="text-xs">
-                            ${d.morning.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.morning.Entrada} - ${d.morning.Salida || '--'}</span>` : '-'}
+                            ${d.morning.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.morning.Entrada.substring(0,5)} - ${d.morning.Salida ? d.morning.Salida.substring(0,5) : '--'}</span>` : '-'}
                         </td>
                         <td class="text-xs">
-                            ${d.afternoon.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.afternoon.Entrada} - ${d.afternoon.Salida || '--'}</span>` : '-'}
+                            ${d.afternoon.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.afternoon.Entrada.substring(0,5)} - ${d.afternoon.Salida ? d.afternoon.Salida.substring(0,5) : '--'}</span>` : '-'}
                         </td>
                         <td class="font-bold text-servilang-primary bg-slate-50/50">${formatSecondsToClock(dayTotalSeconds)}</td>
                     </tr>`;

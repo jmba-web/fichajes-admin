@@ -259,13 +259,6 @@
             return endSecs > startSecs ? (endSecs - startSecs) : 0;
         }
 
-        // Convierte los segundos a formato decimal tradicional (ej: 7.10 h o 6.99 h)
-        function formatSecondsToDecimal(totalSeconds) {
-            const decimalHours = totalSeconds / 3600;
-            return decimalHours.toFixed(2) + " h";
-        }
-
-        // Para el resumen general de la tarjeta azul seguimos manteniendo el formato reloj HH:MM:SS de control oficial
         function formatSecondsToClock(totalSeconds) {
             const h = Math.floor(totalSeconds / 3600);
             const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
@@ -298,31 +291,44 @@
         };
 
         function render(data) {
-            const daily = {};
-            
+            // Fase 1: Agrupar primero los fichajes crudos por su ID_Fichaje único
+            const fichajesPorId = {};
             data.forEach(f => {
-                const date = getCleanDate(f.Fecha);
+                const id = f.ID_Fichaje;
+                if (!id) return;
+                if (!fichajesPorId[id]) {
+                    fichajesPorId[id] = { Entrada: null, Salida: null, Fecha: getCleanDate(f.Fecha), Turno: f.Turno };
+                }
+                if (f.Tipo_Fichaje === 'Entrada') fichajesPorId[id].Entrada = getCleanTime(f.Hora);
+                if (f.Tipo_Fichaje === 'Salida') fichajesPorId[id].Salida = getCleanTime(f.Hora);
+            });
+
+            // Fase 2: Agrupar los bloques calculados por día del calendario
+            const daily = {};
+            Object.keys(fichajesPorId).forEach(id => {
+                const item = fichajesPorId[id];
+                const date = item.Fecha;
                 if (!date) return;
-                
+
                 if (!daily[date]) {
-                    daily[date] = { 
-                        morning: { Entrada: null, Salida: null }, 
-                        afternoon: { Entrada: null, Salida: null }, 
-                        ids: [] 
+                    daily[date] = {
+                        morningBlocks: [],
+                        afternoonBlocks: [],
+                        ids: []
                     };
                 }
-                
-                const time = getCleanTime(f.Hora);
-                if (f.ID_Fichaje && !daily[date].ids.includes(f.ID_Fichaje)) {
-                    daily[date].ids.push(f.ID_Fichaje);
+
+                if (!daily[date].ids.includes(id)) {
+                    daily[date].ids.push(id);
                 }
-                
-                if (f.Turno === 'Mañana') {
-                    if (f.Tipo_Fichaje === 'Entrada') daily[date].morning.Entrada = time;
-                    if (f.Tipo_Fichaje === 'Salida') daily[date].morning.Salida = time;
+
+                const blockText = (item.Entrada || '--') + ' - ' + (item.Salida || '--');
+                const seconds = calcSecondsFromTimes(item.Entrada, item.Salida);
+
+                if (item.Turno === 'Mañana') {
+                    daily[date].morningBlocks.push({ text: blockText, secs: seconds });
                 } else {
-                    if (f.Tipo_Fichaje === 'Entrada') daily[date].afternoon.Entrada = time;
-                    if (f.Tipo_Fichaje === 'Salida') daily[date].afternoon.Salida = time;
+                    daily[date].afternoonBlocks.push({ text: blockText, secs: seconds });
                 }
             });
 
@@ -340,26 +346,32 @@
             dates.forEach(date => {
                 const d = daily[date];
                 
-                const secsMorning = calcSecondsFromTimes(d.morning.Entrada, d.morning.Salida);
-                const secsAfternoon = calcSecondsFromTimes(d.afternoon.Entrada, d.afternoon.Salida);
+                // Sumamos absolutamente todos los segundos de todos los bloques del día
+                let dayTotalSeconds = 0;
+                d.morningBlocks.forEach(b => dayTotalSeconds += b.secs);
+                d.afternoonBlocks.forEach(b => dayTotalSeconds += b.secs);
                 
-                const dayTotalSeconds = secsMorning + secsAfternoon;
                 globalTotalSeconds += dayTotalSeconds;
 
                 const visualDate = date.includes('-') ? date.split('-').reverse().join('/') : date;
                 const displayId = d.ids.length > 0 ? d.ids.join(', ') : '--';
 
+                // Juntamos los textos si hay múltiples marcas en el mismo turno
+                const morningHTML = d.morningBlocks.length > 0 
+                    ? d.morningBlocks.map(b => `<span class="block bg-slate-50 px-2 py-0.5 rounded border border-slate-100 my-0.5">${b.text}</span>`).join('') 
+                    : '-';
+                
+                const afternoonHTML = d.afternoonBlocks.length > 0 
+                    ? d.afternoonBlocks.map(b => `<span class="block bg-slate-50 px-2 py-0.5 rounded border border-slate-100 my-0.5">${b.text}</span>`).join('') 
+                    : '-';
+
                 tableBody.innerHTML += `
                     <tr>
                         <td class="font-bold text-servilang-dark">${visualDate}</td>
                         <td class="text-[10px] text-slate-300 font-mono truncate max-w-[100px]" title="${displayId}">${displayId}</td>
-                        <td class="text-xs">
-                            ${d.morning.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.morning.Entrada} - ${d.morning.Salida || '--'}</span>` : '-'}
-                        </td>
-                        <td class="text-xs">
-                            ${d.afternoon.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.afternoon.Entrada} - ${d.afternoon.Salida || '--'}</span>` : '-'}
-                        </td>
-                        <td class="font-bold text-servilang-primary bg-slate-50/50">${formatSecondsToDecimal(dayTotalSeconds)}</td>
+                        <td class="text-xs">${morningHTML}</td>
+                        <td class="text-xs">${afternoonHTML}</td>
+                        <td class="font-bold text-servilang-primary bg-slate-50/50">${formatSecondsToClock(dayTotalSeconds)}</td>
                     </tr>`;
             });
 
@@ -446,7 +458,7 @@
 
                     <div style="margin-top: 40px; border-top: 1px solid #f1f5f9; padding-top: 15px;">
                         <p style="font-size: 8px; color: #94a3b8; text-align: justify; line-height: 1.5;">
-                            En cumplimiento del Art. 34.9 del Estatuto de los Trabajadores (Real Decreto-ley 8/2019), este documento certifica las horas efectivamente trabajadas por el empleado arriba mencionado durante el período indicado.
+                            En cumplimiento del Art. 34.9 del Estatuto de los Trabajadores (Real Decreto-ley 8/2019), este documento certifies las horas efectivamente trabajadas por el empleado arriba mencionado durante el período indicado.
                         </p>
                     </div>
                 </div>

@@ -104,7 +104,6 @@
         let state = { name: null, dni: null, email: null, start: null, end: null };
 
         async function init() {
-            // Valores por defecto para el mes de Mayo de 2026
             document.getElementById('start-date').value = "2026-05-01";
             document.getElementById('end-date').value = "2026-05-31";
             
@@ -124,12 +123,11 @@
                     userSelect.appendChild(opt);
                 });
             } catch (e) {
-                console.error("Error al cargar la API:", e);
+                console.error("Error inicial:", e);
                 document.getElementById('user-select').innerHTML = '<option value="">Error de conexión</option>';
             }
         }
 
-        // Limpia el formato de la fecha para evitar que salte de día por culpa de las zonas horarias del navegador
         function cleanDateString(input) {
             if (!input) return null;
             let text = String(input).trim().split('T')[0];
@@ -170,7 +168,7 @@
             const endStr = document.getElementById('end-date').value;
 
             if (!email || !startStr || !endStr) {
-                alert("Completa todos los campos de los filtros");
+                alert("Completa todos los campos");
                 return;
             }
 
@@ -194,7 +192,6 @@
         function renderDashboard(fichajesFiltrados) {
             const groupedByDay = {};
 
-            // Agrupar los fichajes por día
             fichajesFiltrados.forEach(f => {
                 const dayISO = cleanDateString(f.Fecha);
                 if (!dayISO) return;
@@ -223,7 +220,6 @@
                 }
             });
 
-            let totalGlobalSeconds = 0;
             const body = document.getElementById('fichajes-table-body');
             body.innerHTML = '';
 
@@ -231,14 +227,17 @@
 
             if (sortedDays.length === 0) {
                 body.innerHTML = '<tr><td colspan="5" class="py-20 text-slate-400">No hay registros coincidentes.</td></tr>';
+                document.getElementById('total-hours').textContent = "00:00:00";
                 document.getElementById('export-pdf-btn').disabled = true;
                 return;
             }
 
+            let totalGlobalSeconds = 0;
+
             sortedDays.forEach(dayKey => {
                 const dayData = groupedByDay[dayKey];
                 
-                // ORDENACIÓN CRUCIAL: Aseguramos que la hora menor sea la entrada y la mayor la salida
+                // Ordenamos las marcas de cada turno para garantizar Entrada (menor) y Salida (mayor)
                 dayData.mañana.sort((a, b) => a.seconds - b.seconds);
                 dayData.tarde.sort((a, b) => a.seconds - b.seconds);
 
@@ -246,10 +245,8 @@
                 let morningCellText = '-';
                 if (dayData.mañana.length > 0) {
                     const entradaM = dayData.mañana[0].timeStr;
-                    // Si solo hay un fichaje, se queda como entrada, si hay más, el último es la salida
                     const salidaM = dayData.mañana.length > 1 ? dayData.mañana[dayData.mañana.length - 1].timeStr : '--';
                     morningCellText = `${entradaM} - ${salidaM}`;
-                    
                     if (dayData.mañana.length >= 2) {
                         morningSeconds = dayData.mañana[dayData.mañana.length - 1].seconds - dayData.mañana[0].seconds;
                     }
@@ -261,15 +258,13 @@
                     const entradaT = dayData.tarde[0].timeStr;
                     const salidaT = dayData.tarde.length > 1 ? dayData.tarde[dayData.tarde.length - 1].timeStr : '--';
                     afternoonCellText = `${entradaT} - ${salidaT}`;
-                    
                     if (dayData.tarde.length >= 2) {
                         afternoonSeconds = dayData.tarde[dayData.tarde.length - 1].seconds - dayData.tarde[0].seconds;
                     }
                 }
 
-                // Sumamos los tiempos calculados de forma independiente
                 const dayTotalSeconds = morningSeconds + afternoonSeconds;
-                totalGlobalSeconds += dayTotalSeconds;
+                totalGlobalSeconds += dayTotalSeconds; // Acumulador robusto corregido
 
                 const visualFormattedDate = dayKey.split('-').reverse().join('/');
 

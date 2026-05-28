@@ -157,7 +157,7 @@
         }
 
         function secondsIntegerToClock(totalSeconds) {
-            if (!totalSeconds || totalSeconds <= 0) return "00:00:00";
+            if (totalSeconds === null || totalSeconds === undefined || totalSeconds <= 0) return "00:00:00";
             
             const hours = Math.floor(totalSeconds / 3600);
             const remainingSeconds = totalSeconds % 3600;
@@ -196,6 +196,7 @@
         };
 
         function renderDashboard(fichajesFiltrados) {
+            // REFRESCO TOTAL: Forzamos el vaciado absoluto del mapa contenedor para evitar residuos en memoria
             const mapJornadas = {};
 
             fichajesFiltrados.forEach(f => {
@@ -236,18 +237,19 @@
                 return;
             }
 
+            // RESET EXPLICITO: Ponemos el acumulador global a 0 estricto antes de iniciar el cálculo de filas
             let acumuladorSegundosMensual = 0;
 
             listaDiasOrdenados.forEach(dayKey => {
                 const jornada = mapJornadas[dayKey];
                 
-                // CRUCIAL: Ordenación numérica explícita por valor de segundos totales
+                // Ordenación numérica interna inmutable por cada iteración diaria
                 jornada.marcasMañana.sort((a, b) => a.segundos - b.segundos);
                 jornada.marcasTarde.sort((a, b) => a.segundos - b.segundos);
 
                 let segundosTrabajadosHoy = 0;
 
-                // --- CÁLCULO MAÑANA (Garantizado Entrada primero, Salida después) ---
+                // --- MAÑANA ---
                 let textoCeldaMañana = '-';
                 if (jornada.marcasMañana.length > 0) {
                     const primero = jornada.marcasMañana[0];
@@ -261,7 +263,7 @@
                     }
                 }
 
-                // --- CÁLCULO TARDE (Garantizado Entrada primero, Salida después) ---
+                // --- TARDE ---
                 let textoCeldaTarde = '-';
                 if (jornada.marcasTarde.length > 0) {
                     const primero = jornada.marcasTarde[0];

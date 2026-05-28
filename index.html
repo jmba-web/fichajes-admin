@@ -144,8 +144,7 @@
                         <span id="record-count-badge" class="text-[8px] bg-white/10 px-1.5 py-0.5 rounded uppercase">0 registros</span>
                     </div>
                     <div class="flex items-baseline gap-1.5">
-                        <span id="total-hours" class="text-2xl font-brand font-extrabold tracking-tight">0.00</span>
-                        <span class="text-servilang-accent font-bold text-[9px]">H</span>
+                        <span id="total-hours" class="text-2xl font-brand font-extrabold tracking-tight">00:00:00</span>
                     </div>
                     <div class="mt-3 pt-2 border-t border-white/10">
                         <p id="summary-user-name" class="text-[10px] font-bold truncate uppercase">Sin trabajador</p>
@@ -295,8 +294,15 @@
                 const d = daily[date];
                 const hM = calcHours(d.morning.Entrada, d.morning.Salida);
                 const hA = calcHours(d.afternoon.Entrada, d.afternoon.Salida);
-                const dayTotal = hM + hA;
-                total += dayTotal;
+                const dayTotalDecimal = hM + hA;
+                total += dayTotalDecimal;
+
+                // Modificación: Convertir las horas decimales del día a formato hh:mm:ss real
+                const totalSecondsDay = Math.round(dayTotalDecimal * 3600);
+                const hDisplay = Math.floor(totalSecondsDay / 3600);
+                const mDisplay = Math.floor((totalSecondsDay % 3600) / 60).toString().padStart(2, '0');
+                const sDisplay = (totalSecondsDay % 60).toString().padStart(2, '0');
+                const formattedDayTime = `${hDisplay}:${mDisplay}:${sDisplay}`;
 
                 tableBody.innerHTML += `
                     <tr>
@@ -308,13 +314,19 @@
                         <td class="text-xs">
                             ${d.afternoon.Entrada ? `<span class="bg-slate-50 px-2 py-1 rounded border border-slate-100">${d.afternoon.Entrada} - ${d.afternoon.Salida || '--'}</span>` : '-'}
                         </td>
-                        <td class="font-bold text-servilang-primary bg-slate-50/50">${dayTotal.toFixed(2)} h</td>
+                        <td class="font-bold text-servilang-primary bg-slate-50/50">${formattedDayTime}</td>
                     </tr>`;
             });
 
+            // Modificación: Convertir también el acumulado del recuadro global a formato hh:mm:ss real
+            const totalSecondsGlobal = Math.round(total * 3600);
+            const gH = Math.floor(totalSecondsGlobal / 3600);
+            const gM = Math.floor((totalSecondsGlobal % 3600) / 60).toString().padStart(2, '0');
+            const gS = Math.floor(totalSecondsGlobal % 60).toString().padStart(2, '0');
+
             document.getElementById('summary-user-name').textContent = state.name;
             document.getElementById('summary-user-dni').textContent = `DNI: ${state.dni}`;
-            document.getElementById('total-hours').textContent = total.toFixed(2);
+            document.getElementById('total-hours').textContent = `${gH}:${gM}:${gS}`;
             document.getElementById('record-count').textContent = `${dates.length} REGISTROS ENCONTRADOS`;
             document.getElementById('record-count-badge').textContent = `${dates.length} registros`;
             document.getElementById('export-pdf-btn').disabled = false;
@@ -328,7 +340,7 @@
             btn.textContent = "Generando...";
             btn.disabled = true;
 
-            // Construir el HTML para el PDF
+            // Construir el HTML para el PDF con formato de reloj integrado en el total
             renderZone.innerHTML = `
                 <div style="padding: 40px; font-family: 'Montserrat', sans-serif; background: white; color: #1e293b;">
                     <div style="display: flex; justify-content: space-between; border-bottom: 3px solid #002855; padding-bottom: 20px; margin-bottom: 30px; align-items: center;">
@@ -353,7 +365,7 @@
                         </div>
                         <div style="background: #002855; padding: 15px; border-radius: 4px; color: white; text-align: center;">
                             <p style="font-size: 8px; color: #00a8e8; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Total Horas Período</p>
-                            <p style="font-size: 26px; font-weight: 800; margin: 0;">${totalH} <span style="font-size: 12px; font-weight: 400;">h</span></p>
+                            <p style="font-size: 24px; font-weight: 800; margin: 0;">${totalH}</p>
                             <p style="font-size: 8px; color: #cbd5e1; margin-top: 5px;">${state.start} - ${state.end}</p>
                         </div>
                     </div>
@@ -364,7 +376,7 @@
                                 <th style="border: 1px solid #e2e8f0; padding: 10px; font-size: 9px; text-align: left; color: #64748b;">FECHA</th>
                                 <th style="border: 1px solid #e2e8f0; padding: 10px; font-size: 9px; color: #64748b;">TURNO MAÑANA</th>
                                 <th style="border: 1px solid #e2e8f0; padding: 10px; font-size: 9px; color: #64748b;">TURNO TARDE</th>
-                                <th style="border: 1px solid #e2e8f0; padding: 10px; font-size: 9px; color: #64748b; background: #f1f5f9; width: 80px;">SUMA</th>
+                                <th style="border: 1px solid #e2e8f0; padding: 10px; font-size: 9px; color: #64748b; background: #f1f5f9; width: 85px;">SUMA</th>
                             </tr>
                         </thead>
                         <tbody>

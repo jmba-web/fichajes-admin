@@ -30,7 +30,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div class="lg:col-span-1 space-y-6">
                 <div class="card-corporate p-6">
-                    <h3 class="text-sm font-bold mb-6 border-b pb-2 uppercase text-center text-slate-700">Configuración</h3>
+                    <h3 class="text-sm font-bold mb-6 border-b pb-2 uppercase text-center text-slate-700">Filtros</h3>
                     <div class="space-y-4">
                         <div>
                             <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Trabajador</label>
@@ -68,7 +68,7 @@
             <div class="lg:col-span-3">
                 <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                     <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                        <span class="text-xs font-bold text-slate-600 uppercase">Vista Previa de Jornada</span>
+                        <span class="text-xs font-bold text-slate-600 uppercase">Registros de Jornada</span>
                         <span id="record-count" class="text-[10px] px-2 py-1 font-bold text-slate-400 uppercase">Esperando acción...</span>
                     </div>
                     <div class="overflow-x-auto">
@@ -123,23 +123,22 @@
                     userSelect.appendChild(opt);
                 });
             } catch (e) {
-                console.error("Error al conectar:", e);
+                console.error("Error inicial:", e);
                 document.getElementById('user-select').innerHTML = '<option value="">Error de conexión</option>';
             }
         }
 
-        // Convierte strings a formato texto "YYYY-MM-DD" puro y duro ignorando las zonas horarias de JavaScript
+        // Extrae la fecha en formato YYYY-MM-DD sin alterar las horas ni aplicar husos horarios
         function cleanDateString(input) {
             if (!input) return null;
             let text = String(input).trim().split('T')[0];
-            
             if (text.includes('/')) {
                 const parts = text.split('/');
                 if (parts.length === 3) {
                     return `${parts[2].padStart(4, '0')}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
                 }
             }
-            return text; // Si ya viene en formato YYYY-MM-DD
+            return text;
         }
 
         function extractCleanTime(timeField) {
@@ -166,11 +165,11 @@
         document.getElementById('filter-btn').onclick = () => {
             const userSelect = document.getElementById('user-select');
             const email = userSelect.value;
-            const startStr = document.getElementById('start-date').value; // YYYY-MM-DD
-            const endStr = document.getElementById('end-date').value;     // YYYY-MM-DD
+            const startStr = document.getElementById('start-date').value;
+            const endStr = document.getElementById('end-date').value;
 
             if (!email || !startStr || !endStr) {
-                alert("Completa todos los campos del filtro");
+                alert("Completa todos los campos");
                 return;
             }
 
@@ -181,7 +180,6 @@
             state.dni = selectedOpt.dataset.dni;
             state.email = email;
 
-            // Filtrado de strings directos en formato ISO estándar
             const filtered = allFichajes.filter(f => {
                 if (String(f.Email_Usuario).trim() !== email.trim()) return false;
                 const dateKey = cleanDateString(f.Fecha);
@@ -195,6 +193,7 @@
         function renderDashboard(fichajesFiltrados) {
             const groupedByDay = {};
 
+            // Agrupamos respetando estrictamente el orden en el que vienen los datos de Sheets
             fichajesFiltrados.forEach(f => {
                 const dayISO = cleanDateString(f.Fecha);
                 if (!dayISO) return;
@@ -230,7 +229,7 @@
             const sortedDays = Object.keys(groupedByDay).sort();
 
             if (sortedDays.length === 0) {
-                body.innerHTML = '<tr><td colspan="5" class="py-20 text-slate-400">No hay registros coincidentes para este período.</td></tr>';
+                body.innerHTML = '<tr><td colspan="5" class="py-20 text-slate-400">No hay registros coincidentes.</td></tr>';
                 document.getElementById('export-pdf-btn').disabled = true;
                 return;
             }
@@ -238,17 +237,16 @@
             sortedDays.forEach(dayKey => {
                 const dayData = groupedByDay[dayKey];
                 
-                dayData.mañana.sort((a, b) => a.seconds - b.seconds);
-                dayData.tarde.sort((a, b) => a.seconds - b.seconds);
-
+                // NO HACER SORT: Confiamos ciegamente en el orden de inserción natural de las marcas (Entrada -> Salida)
                 let morningSeconds = 0;
                 let morningCellText = '-';
                 if (dayData.mañana.length > 0) {
                     const entradaM = dayData.mañana[0].timeStr;
-                    const salidaM = dayData.mañana.length > 1 ? dayData.mañana[dayData.mañana.length - 1].timeStr : '--';
+                    const salidaM = dayData.mañana.length > 1 ? dayData.mañana[1].timeStr : '--';
                     morningCellText = `${entradaM} - ${salidaM}`;
+                    
                     if (dayData.mañana.length >= 2) {
-                        morningSeconds = dayData.mañana[dayData.mañana.length - 1].seconds - dayData.mañana[0].seconds;
+                        morningSeconds = dayData.mañana[1].seconds - dayData.mañana[0].seconds;
                     }
                 }
 
@@ -256,10 +254,11 @@
                 let afternoonCellText = '-';
                 if (dayData.tarde.length > 0) {
                     const entradaT = dayData.tarde[0].timeStr;
-                    const salidaT = dayData.tarde.length > 1 ? dayData.tarde[dayData.tarde.length - 1].timeStr : '--';
+                    const salidaT = dayData.tarde.length > 1 ? dayData.tarde[1].timeStr : '--';
                     afternoonCellText = `${entradaT} - ${salidaT}`;
+                    
                     if (dayData.tarde.length >= 2) {
-                        afternoonSeconds = dayData.tarde[dayData.tarde.length - 1].seconds - dayData.tarde[0].seconds;
+                        afternoonSeconds = dayData.tarde[1].seconds - dayData.tarde[0].seconds;
                     }
                 }
 

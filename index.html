@@ -14,6 +14,19 @@
         .card-corporate { background: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-top: 4px solid #004b93; }
         .fichajes-table th { background-color: #f1f5f9; padding: 1rem; font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; text-align: center; border-bottom: 2px solid #e2e8f0; }
         .fichajes-table td { padding: 0.85rem 1rem; border-bottom: 1px solid #f1f5f9; font-size: 0.875rem; text-align: center; }
+        
+        /* Compatibilidad de ruedas táctiles en iPhone */
+        input[type="date"] {
+            position: relative;
+            -webkit-appearance: none;
+            min-height: 44px;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: auto; height: auto;
+            color: transparent; background: transparent;
+        }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8">
@@ -72,8 +85,8 @@
                 </div>
             </div>
 
-            <div class="lg:col-span-3">
-                <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+            <div class="lg:col-span-3" id="printable-area">
+                <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden p-1">
                     <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
                         <span class="text-xs font-bold text-slate-600 uppercase">Registros de Jornada</span>
                         <span id="record-count" class="text-[10px] px-2 py-1 font-bold text-slate-400 uppercase">Esperando acción...</span>
@@ -133,15 +146,14 @@
         }
 
         async function init() {
-            // CORRECCIÓN ESTRICTA DE FECHAS LOCALES (Evita saltos de zona horaria al último día del mes)
             const tzoffset = (new Date()).getTimezoneOffset() * 60000; 
-            const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 10); // Genera "YYYY-MM-DD" real de hoy
+            const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 10);
             
-            const partes = localISOTime.split('-'); // [YYYY, MM, DD]
-            const primerDiaMesISO = `${partes[0]}-${partes[1]}-01`; // Fuerza siempre el día 1 del mes actual
+            const partes = localISOTime.split('-');
+            const primerDiaMesISO = `${partes[0]}-${partes[1]}-01`;
 
             document.getElementById('start-date').value = primerDiaMesISO;
-            document.getElementById('end-date').value = localISOTime; // Aplica el día de hoy exacto
+            document.getElementById('end-date').value = localISOTime;
             
             const userSelect = document.getElementById('user-select');
 
@@ -192,7 +204,7 @@
                     document.getElementById('worker-info-locked').classList.add('hidden');
                 }
             } catch (e) {
-                console.error("Fallo controlado en inicio:", e);
+                console.error("Fallo en inicio:", e);
                 state.rol = 'admin';
                 document.getElementById('worker-select-container').classList.remove('hidden');
                 userSelect.innerHTML = '<option value="">Acceso sin restricciones (Admin)</option>';
@@ -367,8 +379,65 @@
             document.getElementById('total-hours').textContent = formatoSegundosAClock(acumuladorSegundosMensual);
             document.getElementById('record-count').textContent = `${listaDiasOrdenados.length} JORNADAS REGISTRADAS`;
             document.getElementById('record-count-badge').textContent = `${listaDiasOrdenados.length} días`;
+            
+            // ACTIVAR EL BOTÓN CUANDO HAY DATOS CARGADOS
             document.getElementById('export-pdf-btn').disabled = false;
         }
+
+        // --- LÓGICA DE EXPORTACIÓN A PDF ACTIVA ---
+        document.getElementById('export-pdf-btn').onclick = async function() {
+            const btn = document.getElementById('export-pdf-btn');
+            btn.textContent = "Generando...";
+            btn.disabled = true;
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'pt', 'a4');
+                const element = document.getElementById('printable-area');
+
+                // Configuración de renderizado fotográfico de la tabla
+                const canvas = await html2canvas(element, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                
+                // Formatear cabecera superior de cortesía en el PDF
+                doc.setFont("Helvetica", "bold");
+                doc.setFontSize(14);
+                doc.text("INFORME DE CONTROL HORARIO - SERVILANG", 40, 40);
+                
+                doc.setFont("Helvetica", "normal");
+                doc.setFontSize(10);
+                doc.text(`Empleado: ${state.name.toUpperCase()}  |  DNI: ${state.dni}`, 40, 58);
+                doc.text(`Período: ${state.start.split('-').reverse().join('/')} al ${state.end.split('-').reverse().join('/')}`, 40, 72);
+                doc.text(`Total Horas Computadas: ${document.getElementById('total-hours').textContent}`, 40, 86);
+                
+                doc.setDrawColor(0, 75, 147);
+                doc.setLineWidth(1.5);
+                doc.line(40, 96, 555, 96);
+
+                // Insertar tabla escalada a los márgenes A4
+                const imgWidth = 515; 
+                const pageHeight = 842;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                doc.addImage(imgData, 'PNG', 40, 110, imgWidth, imgHeight);
+                
+                // Descargar archivo
+                const nombreArchivo = `Fichajes_${state.name.replace(/\s+/g, '_')}_${state.start}.pdf`;
+                doc.save(nombreArchivo);
+
+            } catch (error) {
+                console.error("Error al exportar PDF:", error);
+                alert("No se pudo generar el PDF automáticamente en este dispositivo.");
+            } finally {
+                btn.textContent = "Generar Informe PDF";
+                btn.disabled = false;
+            }
+        };
 
         init();
     </script>

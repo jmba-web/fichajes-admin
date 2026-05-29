@@ -32,12 +32,19 @@
                 <div class="card-corporate p-6">
                     <h3 class="text-sm font-bold mb-6 border-b pb-2 uppercase text-center text-slate-700">Filtros</h3>
                     <div class="space-y-4">
-                        <div>
+                        <div id="worker-select-container">
                             <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Trabajador</label>
                             <select id="user-select" class="w-full border border-slate-200 p-2.5 rounded text-sm outline-none bg-white">
                                 <option value="">Cargando empleados...</option>
                             </select>
                         </div>
+                        
+                        <div id="worker-info-locked" class="hidden bg-slate-50 p-3 rounded border border-slate-200">
+                            <label class="block text-[9px] font-bold text-slate-400 uppercase">Usuario Conectado</label>
+                            <p id="locked-user-name" class="text-sm font-bold text-slate-800 uppercase mt-0.5">--</p>
+                            <p id="locked-user-role" class="text-[10px] text-blue-700 font-semibold uppercase tracking-wider mt-0.5">Empleado</p>
+                        </div>
+
                         <div>
                             <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Desde</label>
                             <input type="date" id="start-date" class="w-full border border-slate-200 p-2.5 rounded text-sm outline-none">
@@ -97,8 +104,14 @@
     <script type="module">
         const API_URL = 'https://script.google.com/macros/s/AKfycbxYGU78jptiNS8nk09AItfJd_0gau2yoRMDQuWcYai8aQHktUHysXBJ8DMaP54xGuwprg/exec';
 
+        // DETECCIÓN DE CUENTA DE GOOGLE EN EL NAVEGADOR
+        // Nota: Si despliegas esta web en Google Apps Script usando un "Web App" ejecutado como "User accessing the web app", 
+        // puedes obtener este email de forma nativa. Mientras tanto, puedes cambiar esta constante para simular cualquier usuario:
+        const CURRENT_GOOGLE_USER_EMAIL = 'info@servilang.es'; // Ejemplo: Osi Servilang SLL (Empleado)
+
         let allFichajes = [];
-        let state = { name: null, dni: null, email: null, start: null, end: null };
+        let allUsuarios = [];
+        let state = { name: null, dni: null, email: null, start: null, end: null, rol: null };
 
         async function init() {
             document.getElementById('start-date').value = "2026-05-01";
@@ -108,17 +121,41 @@
                 const res = await fetch(API_URL);
                 const data = await res.json();
                 allFichajes = data.fichajes || [];
+                allUsuarios = data.usuarios || [];
                 
-                const userSelect = document.getElementById('user-select');
-                userSelect.innerHTML = '<option value="">Seleccionar empleado...</option>';
-                (data.usuarios || []).forEach(u => {
-                    const opt = document.createElement('option');
-                    opt.value = u.Email_Usuario;
-                    opt.textContent = u.Nombre_Completo;
-                    opt.dataset.dni = u.DNI || 'N/D';
-                    opt.dataset.name = u.Nombre_Completo;
-                    userSelect.appendChild(opt);
-                });
+                // Buscar si el usuario del navegador está registrado en la lista
+                const loggedUser = allUsuarios.find(u => String(u.Email_Usuario).trim().toLowerCase() === CURRENT_GOOGLE_USER_EMAIL.trim().toLowerCase());
+
+                if (loggedUser && String(loggedUser.Rol).toLowerCase() === 'empleado') {
+                    // COMPORTAMIENTO PARA EMPLEADO: Bloquear interfaz
+                    state.email = loggedUser.Email_Usuario;
+                    state.name = loggedUser.Nombre_Completo;
+                    state.dni = loggedUser.DNI || 'N/D';
+                    state.rol = 'empleado';
+
+                    // Ocultamos el selector y mostramos sus datos estáticos fijados
+                    document.getElementById('worker-select-container').classList.add('hidden');
+                    document.getElementById('worker-info-locked').classList.remove('hidden');
+                    document.getElementById('locked-user-name').textContent = state.name;
+
+                    // Autoejecutar la carga de sus datos de inmediato
+                    ejecutarFiltro();
+                } else {
+                    // COMPORTAMIENTO PARA ADMIN (O si no se encuentra coincidencia, por seguridad actúa como Admin)
+                    document.getElementById('worker-select-container').classList.remove('hidden');
+                    document.getElementById('worker-info-locked').classList.add('hidden');
+
+                    const userSelect = document.getElementById('user-select');
+                    userSelect.innerHTML = '<option value="">Seleccionar empleado...</option>';
+                    allUsuarios.forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = u.Email_Usuario;
+                        opt.textContent = `${u.Nombre_Completo} (${u.Rol})`;
+                        opt.dataset.dni = u.DNI || 'N/D';
+                        opt.dataset.name = u.Nombre_Completo;
+                        userSelect.appendChild(opt);
+                    });
+                }
             } catch (e) {
                 console.error("Error al iniciar aplicación:", e);
             }
@@ -143,28 +180,23 @@
             return text.substring(0, 8);
         }
 
-        // Conversión limpia a segundos para cálculos matemáticos puros
         function timeToSeconds(timeStr) {
             const p = timeStr.split(':').map(Number);
             return p[0] * 3600 + p[1] * 60 + p[2];
         }
 
-        // LÓGICA DE CÁLCULO MATEMÁTICO REAL RESTANDO SALIDA MENOS ENTRADA
         function calcularDiferenciaNeto(marcasM, marcasT) {
             let segundosTotales = 0;
-
             if (marcasM.length >= 2) {
                 const tEntrada = timeToSeconds(marcasM[0]);
                 const tSalida = timeToSeconds(marcasM[marcasM.length - 1]);
                 if (tSalida > tEntrada) segundosTotales += (tSalida - tEntrada);
             }
-
             if (marcasT.length >= 2) {
                 const tEntrada = timeToSeconds(marcasT[0]);
                 const tSalida = timeToSeconds(marcasT[marcasT.length - 1]);
                 if (tSalida > tEntrada) segundosTotales += (tSalida - tEntrada);
             }
-
             return segundosTotales;
         }
 
@@ -177,33 +209,46 @@
             return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         }
 
-        document.getElementById('filter-btn').onclick = () => {
-            const userSelect = document.getElementById('user-select');
-            const email = userSelect.value;
+        // Encapsulamos la acción del filtrado para poder llamarla manualmente o por botón
+        function ejecutarFiltro() {
             const startStr = document.getElementById('start-date').value;
             const endStr = document.getElementById('end-date').value;
 
-            if (!email || !startStr || !endStr) {
-                alert("Por favor, rellene todos los filtros.");
+            if (!startStr || !endStr) {
+                alert("Por favor, introduzca el rango de fechas.");
                 return;
             }
 
-            state.start = startStr;
-            state.end = endStr;
-            const selectedOpt = userSelect.options[userSelect.selectedIndex];
-            state.name = selectedOpt.dataset.name;
-            state.dni = selectedOpt.dataset.dni;
-            state.email = email;
+            // Si el rol no es empleado, leemos del select de administración
+            if (state.rol !== 'empleado') {
+                const userSelect = document.getElementById('user-select');
+                const email = userSelect.value;
+                if (!email) {
+                    alert("Por favor, seleccione un trabajador.");
+                    return;
+                }
+                state.start = startStr;
+                state.end = endStr;
+                const selectedOpt = userSelect.options[userSelect.selectedIndex];
+                state.name = selectedOpt.dataset.name;
+                state.dni = selectedOpt.dataset.dni;
+                state.email = email;
+            } else {
+                state.start = startStr;
+                state.end = endStr;
+            }
 
             const filtered = allFichajes.filter(f => {
-                if (String(f.Email_Usuario).trim() !== email.trim()) return false;
+                if (String(f.Email_Usuario).trim().toLowerCase() !== state.email.trim().toLowerCase()) return false;
                 const dateKey = cleanDateString(f.Fecha);
                 if (!dateKey) return false;
                 return dateKey >= startStr && dateKey <= endStr;
             });
 
             renderDashboard(filtered);
-        };
+        }
+
+        document.getElementById('filter-btn').onclick = ejecutarFiltro;
 
         function renderDashboard(fichajesFiltrados) {
             const mapJornadas = {};
@@ -237,7 +282,7 @@
             const listaDiasOrdenados = Object.keys(mapJornadas).sort();
 
             if (listaDiasOrdenados.length === 0) {
-                body.innerHTML = '<tr><td colspan="5" class="py-20 text-slate-400">No se encontraron registros.</td></tr>';
+                body.innerHTML = '<tr><td colspan="5" class="py-20 text-slate-400">No se encontraron registros en estas fechas.</td></tr>';
                 document.getElementById('total-hours').textContent = "00:00:00";
                 document.getElementById('export-pdf-btn').disabled = true;
                 return;
@@ -248,7 +293,6 @@
             listaDiasOrdenados.forEach(dayKey => {
                 const jornada = mapJornadas[dayKey];
                 
-                // ORDENACIÓN CRONOLÓGICA REAL INDEPENDIENTE DEL TEXTO
                 jornada.marcasMañana.sort((a, b) => timeToSeconds(a) - timeToSeconds(b));
                 jornada.marcasTarde.sort((a, b) => timeToSeconds(a) - timeToSeconds(b));
 
